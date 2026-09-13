@@ -131,8 +131,15 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
   overflow-wrap:anywhere;word-break:break-word}
 .qd li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;
   background:currentColor;opacity:.45}
-.qd li .d{font-size:10px;color:var(--dim);letter-spacing:.05em}
-.qd li .od{color:var(--ember)}
+.qd li .d,.qd li .due,.qd li .od{font-size:10.5px;letter-spacing:.04em;white-space:nowrap}
+.qd li .d{color:var(--dim)}
+.qd li .od{color:var(--ember);font-weight:600}
+.qd li .due{color:var(--gold)}
+.qd li .lf{font-size:9.5px;color:#4d5b72;margin-left:3px}
+.task.due{border-left-color:var(--ember)}
+.task.due .d{color:var(--ember)}
+.task .k{font-size:10px;border:1px solid var(--line);border-radius:8px;padding:0 5px;
+  margin-left:6px;color:var(--dim);letter-spacing:.06em}
 .qd li .s{font-size:9.5px;color:#4d5b72;border:1px solid var(--line);border-radius:8px;
   padding:0 5px;margin-left:4px}
 .qd .qe{font-size:11px;color:#3f4c60;letter-spacing:.1em;position:relative;z-index:1;padding:6px 0}
@@ -173,6 +180,75 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
   font-size:13.5px;letter-spacing:.06em;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
 #toast.show{opacity:1}
 ::-webkit-scrollbar{width:0}
+
+/* ===== 超窄（小屏手机 / 折叠内屏）===== */
+@media(max-width:344px){
+  .page{padding:0 12px}
+  .axis{grid-template-columns:16px minmax(0,1fr);gap:5px}
+  .axis .ax:nth-of-type(1),.axis .ax:nth-of-type(2){display:none}
+  .qd .qh{font-size:10px}
+  header .t{letter-spacing:.14em}
+  nav button{font-size:9.5px;letter-spacing:.08em}
+}
+
+/* ===== 平板 ===== */
+@media(min-width:600px) and (max-width:719px){
+  .page{padding:0 34px}
+  #txt{min-height:170px}
+  .qd{min-height:140px}
+}
+
+/* ===== 电脑 ===== */
+@media(min-width:720px){
+  body{overflow:auto}
+  header,main{width:100%;max-width:1160px;margin:0 auto}
+  header{padding:26px 30px 12px}
+  header .t{font-size:17px}
+  nav{order:-1;border-top:none;border-bottom:1px solid var(--line);padding-bottom:0;
+      width:100%;max-width:1160px;margin:0 auto;background:transparent;
+      backdrop-filter:none;-webkit-backdrop-filter:none;padding-left:22px}
+  nav button{flex:none;padding:13px 20px;font-size:12px;letter-spacing:.16em;
+      display:flex;align-items:center;gap:8px;border-bottom:1px solid transparent;margin-bottom:-1px}
+  nav button.on{border-bottom-color:var(--star)}
+  nav button .i{display:inline;margin:0;font-size:14px;line-height:1}
+  .page{padding:0 30px 40px}
+
+  /* 记录：左写右流 */
+  #p-cap.show{display:grid;grid-template-columns:minmax(0,1fr) 330px;
+      grid-template-rows:1fr auto auto;gap:0 26px;align-content:start;padding-top:14px}
+  #p-cap #txt{grid-column:1;grid-row:1;min-height:230px}
+  #p-cap .row:nth-of-type(1){grid-column:1;grid-row:2}
+  #p-cap .row:nth-of-type(2){grid-column:1;grid-row:3;max-width:420px}
+  #p-cap .stream{grid-column:2;grid-row:1/span 3;margin-top:0;max-height:none;
+      border-left:1px solid var(--line);padding-left:20px}
+
+  /* 日历：左日历右象限 */
+  #p-cal.show{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      gap:0 34px;align-content:start;padding-top:14px}
+  #p-cal .cal-h{grid-column:1;grid-row:1}
+  #p-cal #wdrow{grid-column:1;grid-row:2}
+  #p-cal #days{grid-column:1;grid-row:3}
+  #p-cal .daylist{grid-column:1;grid-row:4}
+  #p-cal .mx-wrap{grid-column:2;grid-row:1/span 4;margin:0;padding-bottom:0}
+  #p-cal .day{font-size:13px}
+  .qd{min-height:150px}
+
+  /* 搜索：结果两列 */
+  #p-sea.show{display:flex}
+  #p-sea .res{columns:2;column-gap:28px}
+  #p-sea .hit{break-inside:avoid}
+  #p-sea .sbox,#p-sea .chips{max-width:560px}
+
+  #p-set.show{display:block;max-width:520px;padding-top:14px}
+  #toast{bottom:36px}
+}
+
+/* ===== 大屏 ===== */
+@media(min-width:1300px){
+  header,main,nav{max-width:1320px}
+  #p-cap.show{grid-template-columns:minmax(0,1fr) 400px}
+  #p-sea .res{columns:3}
+}
 @media(prefers-reduced-motion:reduce){#mic.rec{animation:none}}
 </style>
 </head>
@@ -226,6 +302,8 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
     <label>数据仓库</label>
     <input class="f" id="repo" placeholder="jaywang-cpu/jay-inbox">
     <button id="save">保 存 并 连 接</button>
+    <button id="notif" style="background:var(--veil);border:1px solid var(--line);width:100%;
+      margin-top:12px;letter-spacing:.14em">开 启 到 点 通 知</button>
     <div class="hint">
       Token 只存在这台设备，不上传、不进代码。<br><br>
       建 token：GitHub → Settings → Developer settings → Fine-grained tokens →
@@ -415,7 +493,10 @@ function drawCal(){
 function drawList(){
   const ts=plan.tasks.filter(t=>t.date===picked).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   $('#daylist').innerHTML=`<h4>${picked}</h4>`+(ts.length
-    ? ts.map(t=>`<div class="task">${t.time?`<div class="d">${t.time}${t.approx?' · 约':''}</div>`:''}${esc(t.title)}</div>`).join('')
+    ? ts.map(t=>{const due=t.kind==='due';
+        return `<div class="task${due?' due':''}">${
+          t.time||due?`<div class="d">${due?'截止 ':''}${t.time||'当天'}${t.approx?' · 约':''}</div>`:''}${
+          esc(t.title)}${due?'<span class="k">截止</span>':''}</div>`;}).join('')
     : `<div class="empty">这天没有计划</div>`);
 }
 /* 四象限 */
@@ -437,15 +518,49 @@ function drawMatrix(){
     const el=$('#q'+q);
     el.innerHTML=`<div class="qh">${QN[q]}<span class="n">${list.length||''}</span></div>`+
       (list.length
-        ? `<ul>${list.map(i=>`<li>${esc(i.title)}${
-            i.date?`<span class="d ${i.overdue?'od':''}"> ${i.overdue?'逾期 ':''}${i.date.slice(5)}${
-              i.time?' '+i.time:''}${i.approx?' 约':''}</span>`:''}<span class="s">${i.src}</span></li>`).join('')}</ul>`
+        ? `<ul>${list.map(i=>{
+            const due=i.kind==='due', L=i.left;
+            let t='';                                   // 时间信息：只留最该看的那个
+            if(i.overdue) t=`<span class="od">逾期${Math.abs(L)}天</span>`;
+            else if(L===0) t=`<span class="${due?'due':'d'}">今天${i.time?' '+i.time:''}</span>`;
+            else if(L!=null&&L<=7) t=`<span class="${due?'due':'d'}">${due?'还剩':'还有'}${L}天${i.time?' '+i.time:''}</span>`;
+            else if(i.date) t=`<span class="d">${due?'截止 ':''}${i.date.slice(5)}</span>`;
+            const badge=(i.src==='日历')?'':`<span class="s">${i.src}</span>`;
+            return `<li>${esc(i.title)} ${t}${badge}</li>`;}).join('')}</ul>`
         : `<div class="qe">空</div>`);
   }
 }
 
 $('#prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);drawCal();};
 $('#next').onclick=()=>{cur.setMonth(cur.getMonth()+1);drawCal();};
+
+/* ============ 到点通知（页面开着时；手机靠 iPhone 提醒事项） ============ */
+function notified(){try{return JSON.parse(localStorage.getItem('notified')||'[]')}catch(e){return[]}}
+function markNotified(id){const a=notified();a.push(id);
+  localStorage.setItem('notified',JSON.stringify(a.slice(-300)));}
+
+function checkDue(){
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  const now=new Date(), today=stamp(now), hm=pad(now.getHours())+':'+pad(now.getMinutes());
+  const done=notified();
+  for(const i of (open_.items||[])){
+    if(!i.date) continue;
+    const due=i.kind==='due';
+    // 约会：到点提醒。截止：当天早上 9 点提醒一次 + 逾期提醒一次
+    let fire=null,key=null;
+    if(i.overdue){ fire='逾期未完成'; key=i.id+'|over|'+today; }
+    else if(i.date===today){
+      if(i.time && hm>=i.time){ fire=(due?'截止到点 ':'')+i.time; key=i.id+'|t|'+today; }
+      else if(!i.time && hm>='09:00'){ fire=due?'今天截止':'今天'; key=i.id+'|d|'+today; }
+      else if(due && i.time && hm>='09:00'){ fire='今天 '+i.time+' 截止'; key=i.id+'|m|'+today; }
+    }
+    if(fire && !done.includes(key)){
+      try{ new Notification(i.title,{body:fire+' · '+i.src,icon:'icon-192.png',tag:key}); }catch(e){}
+      markNotified(key);
+    }
+  }
+}
+setInterval(()=>{ loadOpen().then(checkDue); }, 5*60*1000);
 
 /* ================= 搜索 ================= */
 let idx={items:[]}, filt='';
@@ -490,6 +605,19 @@ $('#save').onclick=async()=>{
   catch(e){ toast('连接失败 '+String(e.message).slice(0,32)); }
 };
 
+$('#notif').onclick=async()=>{
+  if(!('Notification' in window)) return toast('本设备不支持网页通知');
+  const r=await Notification.requestPermission();
+  if(r==='granted'){ toast('通知已开'); new Notification('星槽',{body:'到点会在这里提醒你',icon:'icon-192.png'}); checkDue(); }
+  else toast('你拒绝了通知权限');
+};
+function syncNotifBtn(){
+  const b=$('#notif'); if(!('Notification' in window)){b.textContent='本设备不支持通知';b.disabled=true;return;}
+  if(Notification.permission==='granted') b.textContent='到 点 通 知 已 开';
+  else if(Notification.permission==='denied') b.textContent='通 知 被 浏 览 器 拒 绝';
+}
+syncNotifBtn();
+
 /* ================= 导航 ================= */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
@@ -499,7 +627,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   if(b.dataset.p==='sea'){ loadIndex(); $('#q').focus(); }
 });
 
-render(); flush(); loadPlan(); loadOpen(); loadIndex();
+render(); flush(); loadPlan(); loadOpen().then(checkDue); loadIndex();
 if(!LS.t) setTimeout(()=>toast('先到「设置」填 Token'),700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
