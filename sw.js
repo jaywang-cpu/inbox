@@ -1,4 +1,4 @@
-const C = 'inbox-v3';
+const C = 'inbox-v4';
 const FILES = ['./index.html','./manifest.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
