@@ -360,6 +360,18 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
   });
 })();
 
+/* ====== 扫码导入 token：#t=xxx 落地即存，随后立刻抹掉地址栏 ====== */
+(function(){
+  const h=location.hash;
+  if(h && h.startsWith('#t=')){
+    const raw=decodeURIComponent(h.slice(3));
+    const [tk,rp]=raw.split('@');
+    if(tk){ localStorage.setItem('tok',tk); if(rp) localStorage.setItem('repo',rp); }
+    history.replaceState(null,'',location.pathname+location.search);
+    sessionStorage.setItem('justImported','1');
+  }
+})();
+
 /* ================= 基础 ================= */
 const LS={
   get t(){return localStorage.getItem('tok')||''}, set t(v){localStorage.setItem('tok',v)},
@@ -628,7 +640,10 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
 });
 
 render(); flush(); loadPlan(); loadOpen().then(checkDue); loadIndex();
-if(!LS.t) setTimeout(()=>toast('先到「设置」填 Token'),700);
+if(sessionStorage.getItem('justImported')){
+  sessionStorage.removeItem('justImported');
+  setTimeout(()=>toast('已连上，开始说话吧'),500);
+} else if(!LS.t) setTimeout(()=>toast('先到「设置」填 Token'),700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
