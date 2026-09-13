@@ -96,6 +96,40 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .task .d{font-size:11px;color:var(--gold);letter-spacing:.08em;margin-bottom:2px}
 .empty{color:#4d5b72;font-size:13px;padding:26px 0;text-align:center;letter-spacing:.1em}
 
+/* 四象限 */
+#p-cal{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.mx-wrap{margin:26px 0 20px}
+.mx-h{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.mx-h b{font-size:12px;color:var(--dim);font-weight:400;letter-spacing:.18em}
+.mx-h .c{font-size:11px;color:var(--gold);letter-spacing:.06em}
+.mx-h .r{margin-left:auto;font-size:11px;color:var(--dim);letter-spacing:.1em}
+.axis{display:grid;grid-template-columns:22px 1fr 1fr;gap:5px;align-items:center}
+.axis .ax{font-size:9.5px;color:#4d5b72;letter-spacing:.24em;text-align:center}
+.axis .ax.v{writing-mode:vertical-rl;height:100%;display:flex;align-items:center;justify-content:center}
+.axis .sp{grid-column:1}
+.qd{background:var(--veil);border:1px solid var(--line);border-radius:13px;padding:10px 11px;
+  min-height:118px;display:flex;flex-direction:column;gap:7px;position:relative;overflow:hidden}
+.qd::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:13px;
+  background:radial-gradient(ellipse 120% 90% at 50% 0%,var(--gl),transparent 72%)}
+.qd.q1{--gl:rgba(196,107,125,.17);border-color:rgba(196,107,125,.30)}
+.qd.q2{--gl:rgba(214,176,114,.15);border-color:rgba(214,176,114,.28)}
+.qd.q3{--gl:rgba(168,203,232,.12);border-color:rgba(168,203,232,.22)}
+.qd.q4{--gl:rgba(120,140,170,.07)}
+.qd .qh{display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.14em;position:relative;z-index:1}
+.qd.q1 .qh{color:var(--ember)} .qd.q2 .qh{color:var(--gold)}
+.qd.q3 .qh{color:var(--star)} .qd.q4 .qh{color:#5a6a80}
+.qd .qh .n{margin-left:auto;opacity:.6;letter-spacing:0}
+.qd ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;
+  position:relative;z-index:1;overflow-y:auto;max-height:168px}
+.qd li{font-size:12.5px;line-height:1.45;color:#c3cfe0;padding-left:11px;position:relative}
+.qd li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;
+  background:currentColor;opacity:.45}
+.qd li .d{font-size:10px;color:var(--dim);letter-spacing:.05em}
+.qd li .od{color:var(--ember)}
+.qd li .s{font-size:9.5px;color:#4d5b72;border:1px solid var(--line);border-radius:8px;
+  padding:0 5px;margin-left:4px}
+.qd .qe{font-size:11px;color:#3f4c60;letter-spacing:.1em;position:relative;z-index:1;padding:6px 0}
+
 /* 搜索 */
 .sbox{display:flex;gap:9px;padding:2px 0 12px}
 #q{flex:1;background:var(--veil);border:1px solid var(--line);border-radius:14px;
@@ -159,6 +193,18 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
     <div class="grid" id="wdrow"></div>
     <div class="grid" id="days"></div>
     <div class="daylist" id="daylist"></div>
+
+    <div class="mx-wrap">
+      <div class="mx-h"><b>四 象 限</b><span class="c" id="mxcount"></span>
+        <span class="r" id="mxtime"></span></div>
+      <div class="axis">
+        <div class="sp"></div><div class="ax">紧 急</div><div class="ax">不 紧 急</div>
+        <div class="ax v">重 要</div>
+        <div class="qd q1" id="q1"></div><div class="qd q2" id="q2"></div>
+        <div class="ax v">不重要</div>
+        <div class="qd q3" id="q3"></div><div class="qd q4" id="q4"></div>
+      </div>
+    </div>
   </section>
 
   <section class="page" id="p-sea">
@@ -365,6 +411,32 @@ function drawList(){
     ? ts.map(t=>`<div class="task">${t.time?`<div class="d">${t.time}${t.approx?' · 约':''}</div>`:''}${esc(t.title)}</div>`).join('')
     : `<div class="empty">这天没有计划</div>`);
 }
+/* 四象限 */
+let open_={items:[]};
+const QN={1:'重要 · 紧急',2:'重要 · 不紧急',3:'不重要 · 紧急',4:'不重要 · 不紧急'};
+async function loadOpen(){
+  try{ if(!LS.t) throw 0;
+    open_=JSON.parse(unb64((await gh('contents/open.json')).content));
+    localStorage.setItem('open',JSON.stringify(open_));
+  }catch(e){ try{open_=JSON.parse(localStorage.getItem('open')||'{"items":[]}');}catch(_){} }
+  drawMatrix();
+}
+function drawMatrix(){
+  const all=open_.items||[];
+  $('#mxcount').textContent=all.length?`${all.length} 件没做完`:'';
+  $('#mxtime').textContent=open_.updated?open_.updated.slice(5,16).replace('T',' '):'';
+  for(const q of [1,2,3,4]){
+    const list=all.filter(i=>i.q===q);
+    const el=$('#q'+q);
+    el.innerHTML=`<div class="qh">${QN[q]}<span class="n">${list.length||''}</span></div>`+
+      (list.length
+        ? `<ul>${list.map(i=>`<li>${esc(i.title)}${
+            i.date?`<span class="d ${i.overdue?'od':''}"> ${i.overdue?'逾期 ':''}${i.date.slice(5)}${
+              i.time?' '+i.time:''}${i.approx?' 约':''}</span>`:''}<span class="s">${i.src}</span></li>`).join('')}</ul>`
+        : `<div class="qe">空</div>`);
+  }
+}
+
 $('#prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);drawCal();};
 $('#next').onclick=()=>{cur.setMonth(cur.getMonth()+1);drawCal();};
 
@@ -416,11 +488,11 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));
   b.classList.add('on'); $('#p-'+b.dataset.p).classList.add('show');
-  if(b.dataset.p==='cal') loadPlan();
+  if(b.dataset.p==='cal'){ loadPlan(); loadOpen(); }
   if(b.dataset.p==='sea'){ loadIndex(); $('#q').focus(); }
 });
 
-render(); flush(); loadPlan(); loadIndex();
+render(); flush(); loadPlan(); loadOpen(); loadIndex();
 if(!LS.t) setTimeout(()=>toast('先到「设置」填 Token'),700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
