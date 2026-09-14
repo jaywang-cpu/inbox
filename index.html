@@ -96,6 +96,27 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .task{border-left:1px solid rgba(214,176,114,.4);padding:8px 0 8px 14px;margin-bottom:10px;font-size:15px}
 .task .d{font-size:11px;color:var(--gold);letter-spacing:.08em;margin-bottom:2px}
 .empty{color:#4d5b72;font-size:13px;padding:26px 0;text-align:center;letter-spacing:.1em}
+/* 可勾选 */
+.ck{flex:0 0 auto;width:20px;height:20px;border:1.5px solid var(--line);border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:transparent;
+  transition:all .18s;margin-right:9px}
+.ck:active{transform:scale(.85)}
+.row-done .ck{background:var(--ok);border-color:var(--ok);color:#0b1a12}
+.task{display:flex;align-items:flex-start;gap:0}
+.task .tx{flex:1;min-width:0}
+.task.row-done .tx{opacity:.4;text-decoration:line-through}
+.qd li{display:flex;align-items:flex-start}
+.qd li .ck{width:15px;height:15px;font-size:9px;margin-right:7px;margin-top:2px}
+.qd li .tx{flex:1;min-width:0}
+.qd li.row-done .tx{opacity:.4;text-decoration:line-through}
+.qd li::before{display:none}
+/* 未来计划 */
+.up{margin-top:20px}
+.up h4{margin:0 0 10px;font-size:11px;color:var(--dim);font-weight:400;letter-spacing:.14em;
+  display:flex;align-items:center;gap:8px}
+.up h4::after{content:"";flex:1;height:1px;background:var(--line)}
+.upday{font-size:10.5px;color:var(--gold);letter-spacing:.06em;margin:12px 0 5px}
+.upday .wk{color:#5a6a80;margin-left:6px}
 
 /* 四象限 */
 #p-cal{overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
@@ -581,10 +602,37 @@ function drawList(){
   const ts=plan.tasks.filter(t=>t.date===picked).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   $('#daylist').innerHTML=`<h4>${picked}</h4>`+(ts.length
     ? ts.map(t=>{const due=t.kind==='due';
-        return `<div class="task${due?' due':''}">${
+        return `<div class="task${due?' due':''}${t.done?' row-done':''}" data-tid="${esc(t.id||'')}">
+          <span class="ck">✓</span><div class="tx">${
           t.time||due?`<div class="d">${due?'截止 ':''}${t.time||'当天'}${t.approx?' · 约':''}</div>`:''}${
-          esc(t.title)}${due?'<span class="k">截止</span>':''}</div>`;}).join('')
-    : `<div class="empty">这天没有计划</div>`);
+          esc(t.title)}${due?'<span class="k">截止</span>':''}</div></div>`;}).join('')
+    : `<div class="empty">这天没有计划</div>`) + upcomingHTML();
+  bindChecks();
+}
+
+/* 未来计划：今天之后所有未完成的，按天分组 */
+function upcomingHTML(){
+  const today=stamp(new Date());
+  const ts=(plan.tasks||[]).filter(t=>!t.done && t.date && t.date>today)
+    .sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+  if(!ts.length) return '';
+  const WK=['日','一','二','三','四','五','六'];
+  let h='<div class="up"><h4>接 下 来</h4>', last='';
+  for(const t of ts){
+    if(t.date!==last){
+      last=t.date;
+      const d=new Date(t.date+'T12:00:00');
+      const days=Math.round((d-new Date(today+'T12:00:00'))/864e5);
+      h+=`<div class="upday">${t.date.slice(5)}<span class="wk">周${WK[d.getDay()]} · ${
+        days===1?'明天':days===2?'后天':days+'天后'}</span></div>`;
+    }
+    const due=t.kind==='due';
+    h+=`<div class="task${due?' due':''}" data-tid="${esc(t.id||'')}">
+      <span class="ck">✓</span><div class="tx">${
+      t.time?`<div class="d">${due?'截止 ':''}${t.time}</div>`:''}${esc(t.title)}${
+      due?'<span class="k">截止</span>':''}</div></div>`;
+  }
+  return h+'</div>';
 }
 /* 四象限 */
 let open_={items:[]};
@@ -613,9 +661,12 @@ function drawMatrix(){
             else if(L!=null&&L<=7) t=`<span class="${due?'due':'d'}">${due?'还剩':'还有'}${L}天${i.time?' '+i.time:''}</span>`;
             else if(i.date) t=`<span class="d">${due?'截止 ':''}${i.date.slice(5)}</span>`;
             const badge=(i.src==='日历')?'':`<span class="s">${i.src}</span>`;
-            return `<li>${esc(i.title)} ${t}${badge}</li>`;}).join('')}</ul>`
+            return `<li data-oid="${esc(i.id||'')}" data-src="${esc(i.src)}" data-file="${
+              esc(i.file||'')}" data-title="${esc(i.title)}"><span class="ck">✓</span><div class="tx">${
+              esc(i.title)} ${t}${badge}</div></li>`;}).join('')}</ul>`
         : `<div class="qe">空</div>`);
   }
+  bindChecks();
 }
 
 $('#prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);drawCal();};
@@ -787,6 +838,54 @@ function mdBody(src){
   }
   flushP();
   return h||'<div class="empty">这个文件是空的</div>';
+}
+
+/* ============ 标记完成 ============ */
+let doneQueue=null;
+async function ghPut(path, obj, msg){
+  let sha=null;
+  try{ sha=(await gh('contents/'+path)).sha; }catch(e){}
+  await gh('contents/'+path, {method:'PUT', body:JSON.stringify({
+    message:msg, content:b64(JSON.stringify(obj,null,1)), ...(sha?{sha}:{})})});
+}
+
+async function markPlanDone(id){
+  const t=(plan.tasks||[]).find(x=>x.id===id);
+  if(!t) return;
+  t.done=!t.done;
+  localStorage.setItem('plan',JSON.stringify(plan));
+  drawCal();
+  try{ await ghPut('plan.json', plan, (t.done?'done ':'undone ')+t.title); toast(t.done?'已完成':'已取消'); }
+  catch(e){ toast('没传上去，稍后自动重试'); }
+  await loadOpen();
+}
+
+async function markTodoDone(file, title, el){
+  el.closest('li').classList.add('row-done');
+  try{
+    let d={marks:[]};
+    try{ d=JSON.parse(unb64((await gh('contents/done.json')).content)); }catch(e){}
+    if(!Array.isArray(d.marks)) d.marks=[];
+    d.marks.push({file, title, at:new Date().toISOString()});
+    await ghPut('done.json', d, 'done '+title);
+    toast('已完成');
+  }catch(e){ toast('没传上去，稍后再试'); el.closest('li').classList.remove('row-done'); }
+}
+
+function bindChecks(){
+  document.querySelectorAll('.task .ck').forEach(e=>{
+    if(e._b) return; e._b=1;
+    e.onclick=ev=>{ ev.stopPropagation();
+      const id=e.closest('.task').dataset.tid; if(id) markPlanDone(id); };
+  });
+  document.querySelectorAll('.qd li .ck').forEach(e=>{
+    if(e._b) return; e._b=1;
+    e.onclick=ev=>{ ev.stopPropagation();
+      const li=e.closest('li');
+      if(li.dataset.src==='日历'){ if(li.dataset.oid) markPlanDone(li.dataset.oid); }
+      else if(li.dataset.file){ markTodoDone(li.dataset.file, li.dataset.title, e); }
+    };
+  });
 }
 
 /* ============ 到点通知（页面开着时；手机靠 iPhone 提醒事项） ============ */
