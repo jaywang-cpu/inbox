@@ -188,6 +188,12 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 #qpick .cancel{margin-top:11px;width:100%;background:transparent;color:var(--dim);
   border-color:transparent;padding:10px}
 .qd li .d,.qd li .due,.qd li .od{font-size:10.5px;letter-spacing:.04em;white-space:nowrap}
+.qd li .lk{display:inline-block;margin-left:5px;font-size:10px;opacity:.75;
+  padding:0 3px;border-radius:4px;background:rgba(168,203,232,.14);cursor:pointer}
+.qd li .lk:active{transform:scale(.88)}
+#qpick .unlock{margin-top:9px;width:100%;background:var(--veil);border:1px solid var(--line);
+  border-radius:11px;padding:11px;font-size:12px;color:var(--star);display:none}
+#qpick.locked .unlock{display:block}
 .qd li .d{color:var(--dim)}
 .qd li .od{color:var(--ember);font-weight:600}
 .qd li .due{color:var(--gold)}
@@ -460,6 +466,7 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
     <button data-q="1">重要 · 紧急</button><button data-q="2">重要 · 不紧急</button>
     <button data-q="3">不重要 · 紧急</button><button data-q="4">不重要 · 不紧急</button>
   </div>
+  <button class="unlock">🔓 解锁，回到自动判断</button>
   <button class="cancel">取消</button>
 </div></div>
 <script>
@@ -709,9 +716,10 @@ function drawMatrix(){
             else if(L!=null&&L<=7) t=`<span class="${due?'due':'d'}">${due?'还剩':'还有'}${L}天${i.time?' '+i.time:''}</span>`;
             else if(i.date) t=`<span class="d">${due?'截止 ':''}${i.date.slice(5)}</span>`;
             const badge=(i.src==='日历')?'':`<span class="s">${i.src}</span>`;
+            const lk=i.lock?`<span class="lk" title="已锁住象限，点一下解锁">🔒</span>`:'';
             return `<li data-oid="${esc(i.id||'')}" data-src="${esc(i.src)}" data-file="${
-              esc(i.file||'')}" data-title="${esc(i.title)}"><span class="ck">✓</span><div class="tx">${
-              esc(i.title)} ${t}${badge}</div></li>`;}).join('')}</ul>`
+              esc(i.file||'')}" data-title="${esc(i.title)}" data-lock="${i.lock?1:''}"><span class="ck">✓</span><div class="tx">${
+              esc(i.title)} ${t}${badge}${lk}</div></li>`;}).join('')}</ul>`
         : `<div class="qe">空</div>`);
   }
   bindChecks(); bindDrag();
@@ -947,26 +955,43 @@ let dragging=null, justDragged=false, pickTarget=null;
 
 function qOf(imp,urg){ return imp?(urg?1:2):(urg?3:4); }
 
-async function moveToQ(oid, src, file, title, q){
+async function moveToQ(oid, src, file, title, q, lock){
+  if(lock===undefined) lock=true;          // 手动放过的位置，默认锁住
   const imp = q<=2, urg = (q===1||q===3);
   const it = (open_.items||[]).find(x =>
       (oid && x.id===oid) || (!oid && x.title===title && x.file===file));
-  if(it){ it.imp=imp; it.urg=urg; it.q=q; drawMatrix(); }
+  if(it){ it.imp=imp; it.urg=urg; it.q=q; it.lock=lock; drawMatrix(); }
   try{
     if(src==='日历'){
       const t=(plan.tasks||[]).find(x=>x.id===oid);
-      if(t){ t.imp=imp; t.urg=urg;
+      if(t){ t.imp=imp; t.urg=urg; t.lock=lock;
         localStorage.setItem('plan',JSON.stringify(plan));
         await ghPut('plan.json', plan, 'move '+title); }
     }else{
       let d={moves:[]};
       try{ d=JSON.parse(unb64((await gh('contents/move.json')).content)); }catch(e){}
       if(!Array.isArray(d.moves)) d.moves=[];
-      d.moves.push({file,title,imp,urg,at:new Date().toISOString()});
+      d.moves.push({file,title,imp,urg,lock,at:new Date().toISOString()});
       await ghPut('move.json', d, 'move '+title);
     }
-    toast('已移到「'+QN[q]+'」');
+    toast(lock?('已锁在「'+QN[q]+'」'):'已解锁，回到自动判断');
   }catch(e){ toast('没传上去，稍后再试'); }
+}
+
+async function unlockItem(li){
+  const oid=li.dataset.oid, src=li.dataset.src, title=li.dataset.title, file=li.dataset.file;
+  if(src==='日历'){
+    const t=(plan.tasks||[]).find(x=>x.id===oid);
+    if(t){ delete t.lock; delete t.urg;
+      localStorage.setItem('plan',JSON.stringify(plan));
+      const it=(open_.items||[]).find(x=>x.id===oid); if(it) it.lock=false;
+      drawMatrix();
+      try{ await ghPut('plan.json', plan, 'unlock '+title); toast('已解锁，下次同步后回到自动'); }
+      catch(e){ toast('没传上去，稍后再试'); } }
+  }else{
+    const it=(open_.items||[]).find(x=>x.title===title&&x.file===file);
+    await moveToQ(oid, src, file, title, it?it.q:4, false);
+  }
 }
 
 function openPick(li){
@@ -975,10 +1000,13 @@ function openPick(li){
   const curQ=+(li.closest('.qd').id.slice(1));
   document.querySelectorAll('#qpick .opts button').forEach(b=>
     b.classList.toggle('cur', +b.dataset.q===curQ));
+  $('#qpick').classList.toggle('locked', !!li.dataset.lock);
   $('#qpick').classList.add('show');
 }
 $('#qpick').onclick=e=>{ if(e.target.id==='qpick') $('#qpick').classList.remove('show'); };
 $('#qpick .cancel').onclick=()=>$('#qpick').classList.remove('show');
+$('#qpick .unlock').onclick=()=>{ const li=pickTarget;
+  $('#qpick').classList.remove('show'); if(li) unlockItem(li); };
 document.querySelectorAll('#qpick .opts button').forEach(b=>{
   b.onclick=()=>{ const li=pickTarget; $('#qpick').classList.remove('show');
     if(!li) return;
@@ -1060,6 +1088,7 @@ function bindDrag(){
     li.addEventListener('click',e=>{
       if(e.target.closest('.ck')) return;
       if(justDragged||dragging) return;
+      if(e.target.closest('.lk')){ e.stopPropagation(); unlockItem(li); return; }
       openPick(li);
     });
   });
