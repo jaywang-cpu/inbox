@@ -166,6 +166,27 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
   overflow-wrap:anywhere;word-break:break-word}
 .qd li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;
   background:currentColor;opacity:.45}
+/* 拖动换象限 */
+.qd.drop{background:rgba(168,203,232,.13);border-color:rgba(168,203,232,.55);
+  box-shadow:0 0 22px rgba(120,165,220,.22)}
+.qd li.lifted{opacity:.28}
+#ghost{position:fixed;z-index:9999;pointer-events:none;background:rgba(18,26,40,.96);
+  border:1px solid rgba(168,203,232,.45);border-radius:10px;padding:7px 12px;font-size:13px;
+  color:var(--star);box-shadow:0 10px 30px rgba(0,0,0,.65);max-width:62vw;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transform:translate(-50%,-140%)}
+#qpick{position:fixed;inset:0;z-index:9998;background:rgba(6,10,18,.72);display:none;
+  align-items:center;justify-content:center;padding:24px}
+#qpick.show{display:flex}
+#qpick .box{background:rgba(14,20,32,.97);border:1px solid var(--line);border-radius:16px;
+  padding:18px;width:min(420px,100%)}
+#qpick h5{margin:0 0 4px;font-size:13px;font-weight:500;color:var(--star)}
+#qpick .sub{font-size:11px;color:var(--dim);margin-bottom:14px;letter-spacing:.06em}
+#qpick .opts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+#qpick button{background:var(--veil);border:1px solid var(--line);border-radius:11px;
+  padding:14px 8px;font-size:12.5px;color:var(--star);letter-spacing:.06em}
+#qpick button.cur{border-color:rgba(168,203,232,.6);background:rgba(168,203,232,.14)}
+#qpick .cancel{margin-top:11px;width:100%;background:transparent;color:var(--dim);
+  border-color:transparent;padding:10px}
 .qd li .d,.qd li .due,.qd li .od{font-size:10.5px;letter-spacing:.04em;white-space:nowrap}
 .qd li .d{color:var(--dim)}
 .qd li .od{color:var(--ember);font-weight:600}
@@ -685,7 +706,7 @@ function drawMatrix(){
               esc(i.title)} ${t}${badge}</div></li>`;}).join('')}</ul>`
         : `<div class="qe">空</div>`);
   }
-  bindChecks();
+  bindChecks(); bindDrag();
 }
 
 $('#prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);drawCal();};
@@ -913,6 +934,129 @@ async function markTodoDone(file, title, el){
   }catch(e){ toast('没传上去，稍后再试'); el.closest('li').classList.remove('row-done'); }
 }
 
+/* ============ 四象限：拖动 / 点选 换象限 ============ */
+let dragging=null, justDragged=false, pickTarget=null;
+
+function qOf(imp,urg){ return imp?(urg?1:2):(urg?3:4); }
+
+async function moveToQ(oid, src, file, title, q){
+  const imp = q<=2, urg = (q===1||q===3);
+  const it = (open_.items||[]).find(x =>
+      (oid && x.id===oid) || (!oid && x.title===title && x.file===file));
+  if(it){ it.imp=imp; it.urg=urg; it.q=q; drawMatrix(); }
+  try{
+    if(src==='日历'){
+      const t=(plan.tasks||[]).find(x=>x.id===oid);
+      if(t){ t.imp=imp; t.urg=urg;
+        localStorage.setItem('plan',JSON.stringify(plan));
+        await ghPut('plan.json', plan, 'move '+title); }
+    }else{
+      let d={moves:[]};
+      try{ d=JSON.parse(unb64((await gh('contents/move.json')).content)); }catch(e){}
+      if(!Array.isArray(d.moves)) d.moves=[];
+      d.moves.push({file,title,imp,urg,at:new Date().toISOString()});
+      await ghPut('move.json', d, 'move '+title);
+    }
+    toast('已移到「'+QN[q]+'」');
+  }catch(e){ toast('没传上去，稍后再试'); }
+}
+
+function openPick(li){
+  pickTarget=li;
+  $('#qpt').textContent=li.dataset.title||'';
+  const curQ=+(li.closest('.qd').id.slice(1));
+  document.querySelectorAll('#qpick .opts button').forEach(b=>
+    b.classList.toggle('cur', +b.dataset.q===curQ));
+  $('#qpick').classList.add('show');
+}
+$('#qpick').onclick=e=>{ if(e.target.id==='qpick') $('#qpick').classList.remove('show'); };
+$('#qpick .cancel').onclick=()=>$('#qpick').classList.remove('show');
+document.querySelectorAll('#qpick .opts button').forEach(b=>{
+  b.onclick=()=>{ const li=pickTarget; $('#qpick').classList.remove('show');
+    if(!li) return;
+    moveToQ(li.dataset.oid, li.dataset.src, li.dataset.file, li.dataset.title, +b.dataset.q); };
+});
+
+function pointOver(x,y){
+  for(const q of [1,2,3,4]){
+    const r=$('#q'+q).getBoundingClientRect();
+    if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return q;
+  }
+  return null;
+}
+function clearDrop(){ [1,2,3,4].forEach(q=>$('#q'+q).classList.remove('drop')); }
+
+function startDrag(li,x,y){
+  dragging={li, from:+li.closest('.qd').id.slice(1), over:null};
+  li.classList.add('lifted');
+  const g=document.createElement('div');
+  g.id='ghost'; g.textContent=li.dataset.title||'';
+  g.style.left=x+'px'; g.style.top=y+'px';
+  document.body.appendChild(g);
+  if(navigator.vibrate) navigator.vibrate(12);
+}
+function moveDrag(x,y){
+  if(!dragging) return;
+  const g=$('#ghost'); if(g){ g.style.left=x+'px'; g.style.top=y+'px'; }
+  const q=pointOver(x,y);
+  if(q!==dragging.over){ clearDrop(); if(q&&q!==dragging.from) $('#q'+q).classList.add('drop');
+    dragging.over=q; }
+}
+function endDrag(){
+  if(!dragging) return;
+  const {li,from,over}=dragging;
+  dragging=null; justDragged=true; setTimeout(()=>justDragged=false,350);
+  const g=$('#ghost'); if(g) g.remove();
+  clearDrop(); li.classList.remove('lifted');
+  if(over && over!==from)
+    moveToQ(li.dataset.oid, li.dataset.src, li.dataset.file, li.dataset.title, over);
+}
+
+function bindDrag(){
+  document.querySelectorAll('.qd li').forEach(li=>{
+    if(li._dg) return; li._dg=1;
+
+    let timer=null, sx=0, sy=0;
+    const kill=()=>{ if(timer){clearTimeout(timer); timer=null;} };
+
+    const down=(x,y)=>{ sx=x; sy=y; kill();
+      timer=setTimeout(()=>{ timer=null; startDrag(li,x,y); },280); };
+
+    li.addEventListener('touchstart',e=>{
+      if(e.target.closest('.ck')) return;
+      const t=e.touches[0]; down(t.clientX,t.clientY);
+    },{passive:true});
+
+    li.addEventListener('touchmove',e=>{
+      const t=e.touches[0];
+      if(timer){ if(Math.abs(t.clientX-sx)>9||Math.abs(t.clientY-sy)>9) kill(); return; }
+      if(dragging){ e.preventDefault(); moveDrag(t.clientX,t.clientY); }
+    },{passive:false});
+
+    const up=()=>{ kill(); endDrag(); };
+    li.addEventListener('touchend',up);
+    li.addEventListener('touchcancel',up);
+
+    li.addEventListener('mousedown',e=>{
+      if(e.target.closest('.ck')) return;
+      down(e.clientX,e.clientY);
+      const mv=ev=>{ if(timer){ if(Math.abs(ev.clientX-sx)>9||Math.abs(ev.clientY-sy)>9) kill(); return; }
+        if(dragging) moveDrag(ev.clientX,ev.clientY); };
+      const mu=()=>{ kill(); endDrag();
+        document.removeEventListener('mousemove',mv);
+        document.removeEventListener('mouseup',mu); };
+      document.addEventListener('mousemove',mv);
+      document.addEventListener('mouseup',mu);
+    });
+
+    li.addEventListener('click',e=>{
+      if(e.target.closest('.ck')) return;
+      if(justDragged||dragging) return;
+      openPick(li);
+    });
+  });
+}
+
 function bindChecks(){
   document.querySelectorAll('.task .ck').forEach(e=>{
     if(e._b) return; e._b=1;
@@ -1041,5 +1185,13 @@ if(sessionStorage.getItem('justImported')){
 } else if(!LS.t) setTimeout(()=>toast('先到「设置」填 Token'),700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
+<div id="qpick"><div class="box">
+  <h5 id="qpt"></h5><div class="sub">移到哪个象限</div>
+  <div class="opts">
+    <button data-q="1">重要 · 紧急</button><button data-q="2">重要 · 不紧急</button>
+    <button data-q="3">不重要 · 紧急</button><button data-q="4">不重要 · 不紧急</button>
+  </div>
+  <button class="cancel">取消</button>
+</div></div>
 </body>
 </html>
