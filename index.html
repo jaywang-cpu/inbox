@@ -159,31 +159,66 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .hit .m .g{color:var(--gold)}
 .hit mark{background:rgba(214,176,114,.28);color:#f3e2c4;border-radius:3px;padding:0 2px}
 
-/* 归档 */
-#p-arc.show{display:flex}
-.acats{display:flex;gap:7px;padding:2px 0 12px;flex-wrap:wrap}
-.acat{font-size:12.5px;color:var(--dim);border:1px solid var(--line);border-radius:16px;
-  padding:6px 13px;white-space:nowrap;letter-spacing:.04em}
-.acat.on{color:var(--star);border-color:rgba(168,203,232,.45);background:rgba(168,203,232,.1)}
-.acat .n{opacity:.5;margin-left:5px;font-size:10.5px}
-.alist{overflow-y:auto;flex:1;padding-bottom:20px}
-.agrp{margin-bottom:18px}
-.agrp h5{margin:0 0 9px;font-size:10.5px;color:#5a6a80;font-weight:400;letter-spacing:.18em;
-  display:flex;align-items:center;gap:8px}
-.agrp h5::after{content:"";flex:1;height:1px;background:var(--line)}
-.aitem{padding:9px 0 9px 14px;border-left:1px solid var(--line);margin-bottom:7px;position:relative}
-.aitem::before{content:"";position:absolute;left:-2.5px;top:16px;width:5px;height:5px;
-  border-radius:50%;background:var(--star);opacity:.6}
-.aitem.done{opacity:.42}
-.aitem.done::before{background:var(--ok)}
-.aitem.done .at{text-decoration:line-through}
-.aitem.imp::before{background:var(--gold);box-shadow:0 0 7px var(--gold)}
-.aitem .at{font-size:14px;color:#cfd9e8;line-height:1.5;overflow-wrap:anywhere}
-.aitem .ap{font-size:11.5px;color:#5f6e84;margin-top:3px;line-height:1.5}
-.aitem .ad{font-size:10px;color:#4d5b72;letter-spacing:.06em;margin-top:3px}
-@media(min-width:720px){ #p-arc .alist{columns:2;column-gap:30px}
-  #p-arc .agrp{break-inside:avoid} #p-arc .acats{max-width:640px} }
-@media(min-width:1300px){ #p-arc .alist{columns:3} }
+/* 归档：左树右文，仿 Obsidian */
+#p-arc.show{display:flex;flex-direction:column;min-height:0}
+.arc{display:flex;flex-direction:column;flex:1;min-height:0}
+.arc-head{display:flex;align-items:center;gap:10px;padding:2px 0 10px;font-size:11px;
+  color:var(--dim);letter-spacing:.12em;min-width:0}
+.arc-head .bk{border:1px solid var(--line);border-radius:9px;padding:5px 12px;color:var(--star);
+  font-size:12px;letter-spacing:.04em;display:none;white-space:nowrap;flex:0 0 auto}
+.arc-head .pth{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.tree{overflow-y:auto;flex:1;padding-bottom:14px}
+.tr{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:8px;
+  font-size:14px;color:#b9c6d8;user-select:none}
+.tr:active{background:var(--veil)}
+.tr.sel{background:rgba(168,203,232,.14);color:var(--star)}
+.tr .cv{width:12px;text-align:center;font-size:9px;color:#5a6a80;transition:transform .15s}
+.tr.open .cv{transform:rotate(90deg)}
+.tr .ic{font-size:12px;color:#5a6a80}
+.tr.f .ic{color:var(--gold);opacity:.65}
+.tr .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tr .ct{margin-left:auto;font-size:10px;color:#4d5b72}
+
+/* 正文 */
+.doc{overflow-y:auto;flex:1;padding:4px 2px 40px;display:none}
+.doc.on{display:block}
+.doc .meta{font-size:11px;color:#4d5b72;letter-spacing:.08em;margin:0 0 14px;
+  padding-bottom:10px;border-bottom:1px solid var(--line)}
+.doc h1{font-size:25px;font-weight:700;margin:4px 0 18px;letter-spacing:.01em;color:#eef4fb}
+.doc h2{font-size:20px;font-weight:700;margin:26px 0 12px;color:#e6eef8}
+.doc h3{font-size:16px;font-weight:600;margin:20px 0 9px;color:#dbe5f2}
+.doc p{margin:10px 0;font-size:15px;line-height:1.78;color:#c4d0e0}
+.doc ul,.doc ol{margin:8px 0;padding-left:20px}
+.doc li{font-size:15px;line-height:1.7;color:#c4d0e0;margin:5px 0}
+.doc ul li::marker{color:#5f708a}
+.doc strong{color:#eef4fb;font-weight:700}
+.doc em{color:#cbd7e6;font-style:italic}
+.doc a{color:#a693e8;text-decoration:none;border-bottom:1px solid rgba(166,147,232,.35)}
+.doc code{background:rgba(255,255,255,.06);border-radius:4px;padding:1px 5px;
+  font:13px ui-monospace,monospace;color:var(--star)}
+.doc pre{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px;overflow-x:auto;margin:12px 0}
+.doc pre code{background:none;padding:0;font-size:12.5px;color:#c4d0e0;line-height:1.6}
+.doc blockquote{border-left:2px solid #7d6bd0;margin:14px 0;padding:2px 0 2px 14px;color:#aab8cb}
+.doc blockquote p{margin:4px 0}
+.doc hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+.doc table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;display:block;overflow-x:auto}
+.doc th,.doc td{border:1px solid var(--line);padding:7px 10px;text-align:left;color:#c4d0e0}
+.doc th{background:rgba(255,255,255,.045);color:#e0e8f4;font-weight:600;white-space:nowrap}
+.doc .tk{color:#5f708a;margin-right:6px}
+.doc .tk.on{color:var(--ok)}
+.doc .dn{opacity:.5;text-decoration:line-through}
+
+@media(min-width:720px){
+  #p-arc.show{display:block}
+  .arc{display:grid;grid-template-columns:258px minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr);gap:0 26px;height:100%;min-height:0}
+  .arc-head{grid-column:2;grid-row:1;padding:0 0 10px}
+  .tree{grid-column:1;grid-row:1/span 2;border-right:1px solid var(--line);
+    padding-right:10px;margin-right:-6px}
+  .doc{grid-column:2;grid-row:2;display:block;padding:0 8px 40px 0;min-height:0}
+  .doc.off{display:block}
+}
 
 /* 设置 */
 label{display:block;font-size:12px;color:var(--dim);margin:18px 0 7px;letter-spacing:.1em}
@@ -317,8 +352,12 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
   </section>
 
   <section class="page" id="p-arc">
-    <div class="acats" id="acats"></div>
-    <div class="alist" id="alist"></div>
+    <div class="arc">
+      <div class="arc-head"><span class="bk" id="arcback">‹ 返回</span>
+        <span class="pth" id="arcpath">归 档</span></div>
+      <div class="tree" id="tree"></div>
+      <div class="doc" id="doc"></div>
+    </div>
   </section>
 
   <section class="page" id="p-sea">
@@ -582,39 +621,172 @@ function drawMatrix(){
 $('#prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);drawCal();};
 $('#next').onclick=()=>{cur.setMonth(cur.getMonth()+1);drawCal();};
 
-/* ================= 归档 ================= */
-let vault={items:[]}, acat='';
-const CATORDER=['待办','想法','情绪','点子','清单','问题','人','备忘'];
+/* ================= 归档：文件树 + 正文 ================= */
+let vault={files:[]}, openDirs=new Set(['待办','日历','日记','点子','清单','问题','人','备忘','收件箱','life']), curFile=null;
+
 async function loadVault(){
   try{ if(!LS.t) throw 0;
     vault=JSON.parse(unb64((await gh('contents/vault.json')).content));
     localStorage.setItem('vault',JSON.stringify(vault));
-  }catch(e){ try{vault=JSON.parse(localStorage.getItem('vault')||'{"items":[]}');}catch(_){} }
-  drawArc();
+  }catch(e){ try{vault=JSON.parse(localStorage.getItem('vault')||'{"files":[]}');}catch(_){} }
+  drawTree();
 }
-function drawArc(){
-  const all=vault.items||[];
-  const counts={};
-  all.forEach(i=>counts[i.cat]=(counts[i.cat]||0)+1);
-  const cats=CATORDER.filter(c=>counts[c]);
-  if(!acat || !counts[acat]) acat=cats[0]||'';
-  $('#acats').innerHTML=cats.map(c=>
-    `<span class="acat${c===acat?' on':''}" data-c="${c}">${c}<span class="n">${counts[c]}</span></span>`).join('');
-  $('#acats').querySelectorAll('.acat').forEach(e=>e.onclick=()=>{acat=e.dataset.c;drawArc();});
-  if(!cats.length){
-    $('#alist').innerHTML=`<div class="empty">还没有归档内容<br><br>记一条，我整理完就会出现在这里</div>`;
+
+function buildTree(files){
+  const root={d:{},f:[]};
+  for(const f of files){
+    const parts=f.p.split('/');
+    let n=root;
+    for(let i=0;i<parts.length-1;i++){
+      n.d[parts[i]]=n.d[parts[i]]||{d:{},f:[]};
+      n=n.d[parts[i]];
+    }
+    n.f.push(f);
+  }
+  return root;
+}
+function countAll(n){
+  let c=n.f.length;
+  for(const k in n.d) c+=countAll(n.d[k]);
+  return c;
+}
+function renderNode(n,prefix,depth){
+  let h='';
+  for(const k of Object.keys(n.d)){
+    const path=prefix?prefix+'/'+k:k;
+    const op=openDirs.has(path);
+    h+=`<div class="tr d${op?' open':''}" data-dir="${esc(path)}" style="padding-left:${8+depth*13}px">
+          <span class="cv">▶</span><span class="ic">▣</span>
+          <span class="nm">${esc(k)}</span><span class="ct">${countAll(n.d[k])}</span></div>`;
+    if(op) h+=renderNode(n.d[k],path,depth+1);
+  }
+  for(const f of n.f){
+    const nm=f.p.split('/').pop().replace(/\.(md|json)$/,'');
+    h+=`<div class="tr f${curFile===f.p?' sel':''}" data-file="${esc(f.p)}" style="padding-left:${8+depth*13}px">
+          <span class="cv"></span><span class="ic">▪</span>
+          <span class="nm">${esc(nm)}</span></div>`;
+  }
+  return h;
+}
+function drawTree(){
+  const files=vault.files||[];
+  if(!files.length){
+    $('#tree').innerHTML=`<div class="empty">还没有内容<br><br>记一条，我整理完就出现在这里</div>`;
     return;
   }
-  const list=all.filter(i=>i.cat===acat);
-  const grps=[...new Set(list.map(i=>i.grp))];
-  $('#alist').innerHTML=grps.map(g=>{
-    const rows=list.filter(i=>i.grp===g);
-    return `<div class="agrp"><h5>${esc(g)}</h5>${rows.map(i=>{
-      const cls=(i.done?' done':'')+(i.imp?' imp':'');
-      return `<div class="aitem${cls}"><div class="at">${esc(i.t)}</div>${
-        i.p?`<div class="ap">${esc(i.p)}</div>`:''}${
-        i.d?`<div class="ad">${i.d}</div>`:''}</div>`;}).join('')}</div>`;
-  }).join('');
+  $('#tree').innerHTML=renderNode(buildTree(files),'',0);
+  $('#tree').querySelectorAll('.tr.d').forEach(e=>e.onclick=()=>{
+    const p=e.dataset.dir;
+    openDirs.has(p)?openDirs.delete(p):openDirs.add(p);
+    drawTree();
+  });
+  $('#tree').querySelectorAll('.tr.f').forEach(e=>e.onclick=()=>openFile(e.dataset.file));
+}
+
+function openFile(p){
+  const f=(vault.files||[]).find(x=>x.p===p);
+  if(!f) return;
+  curFile=p;
+  $('#doc').innerHTML=md(f.c);
+  $('#arcpath').textContent=p.replace(/\.(md|json)$/,'').replace(/\//g,' / ');
+  if(innerWidth<720){
+    $('#tree').style.display='none';
+    $('#doc').classList.add('on');
+    $('#arcback').style.display='block';
+  }
+  $('#doc').scrollTop=0;
+  drawTree();
+}
+$('#arcback').onclick=()=>{
+  $('#tree').style.display='';
+  $('#doc').classList.remove('on');
+  $('#arcback').style.display='none';
+  $('#arcpath').textContent='归 档';
+  curFile=null; drawTree();
+};
+
+/* --- 极简 markdown 渲染 --- */
+function inline(t){
+  t=esc(t);
+  t=t.replace(/`([^`]+)`/g,'<code>$1</code>');
+  t=t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  t=t.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>');
+  t=t.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g,'<a>$2</a>');
+  t=t.replace(/\[\[([^\]]+)\]\]/g,'<a>$1</a>');
+  t=t.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t=t.replace(/(^|\s)(https?:\/\/[^\s<]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return t;
+}
+function md(src){
+  let meta='';
+  const fm=src.match(/^---\n([\s\S]*?)\n---\n?/);
+  if(fm){
+    const bits=[];
+    for(const l of fm[1].split('\n')){
+      const m=l.match(/^\s*([A-Za-z_]+)\s*:\s*(.+)$/);
+      if(!m) continue;
+      const k=m[1].toLowerCase(), v=m[2].trim();
+      if(!v || v==='[]') continue;
+      if(k==='source'||k==='url'||k==='link') continue;
+      bits.push(v.replace(/^\[|\]$/g,''));
+    }
+    if(bits.length) meta=`<div class="meta">${esc(bits.join(' · '))}</div>`;
+    src=src.slice(fm[0].length);
+  }
+  return meta+mdBody(src);
+}
+function mdBody(src){
+  if(/^\s*[{[]/.test(src)){                       // json 文件原样显示
+    try{ return '<pre><code>'+esc(JSON.stringify(JSON.parse(src),null,2))+'</code></pre>'; }catch(e){}
+  }
+  const L=src.replace(/\r/g,'').split('\n');
+  let h='',i=0,inCode=false,buf=[];
+  const flushP=()=>{ if(buf.length){ h+='<p>'+inline(buf.join(' '))+'</p>'; buf=[]; } };
+  while(i<L.length){
+    let l=L[i];
+    if(/^```/.test(l)){
+      flushP(); i++; const c=[];
+      while(i<L.length && !/^```/.test(L[i])) c.push(L[i++]);
+      i++; h+='<pre><code>'+esc(c.join('\n'))+'</code></pre>'; continue;
+    }
+    if(/^---+\s*$/.test(l)){ flushP(); h+='<hr>'; i++; continue; }
+    const hd=l.match(/^(#{1,6})\s+(.*)$/);
+    if(hd){ flushP(); const n=Math.min(hd[1].length,3); h+=`<h${n}>${inline(hd[2])}</h${n}>`; i++; continue; }
+    if(/^\s*\|/.test(l) && i+1<L.length && /^\s*\|[\s:|-]+\|?\s*$/.test(L[i+1])){
+      flushP();
+      const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(x=>x.trim());
+      const head=cells(l); i+=2; let body='';
+      while(i<L.length && /^\s*\|/.test(L[i])){
+        body+='<tr>'+cells(L[i]).map(c=>`<td>${inline(c)}</td>`).join('')+'</tr>'; i++;
+      }
+      h+=`<table><thead><tr>${head.map(c=>`<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+      continue;
+    }
+    if(/^\s*>/.test(l)){
+      flushP(); const q=[];
+      while(i<L.length && /^\s*>/.test(L[i])) q.push(L[i++].replace(/^\s*>\s?/,''));
+      h+='<blockquote>'+mdBody(q.join('\n'))+'</blockquote>'; continue;
+    }
+    if(/^\s*([-*+]|\d+\.)\s+/.test(l)){
+      flushP();
+      const ord=/^\s*\d+\./.test(l);
+      let items='';
+      while(i<L.length && /^\s*([-*+]|\d+\.)\s+/.test(L[i])){
+        let t=L[i].replace(/^\s*([-*+]|\d+\.)\s+/,'');
+        const cb=t.match(/^\[([ xX])\]\s*(.*)$/);
+        if(cb){
+          const done=cb[1].toLowerCase()==='x';
+          items+=`<li class="${done?'dn':''}"><span class="tk${done?' on':''}">${done?'✓':'○'}</span>${inline(cb[2])}</li>`;
+        } else items+='<li>'+inline(t)+'</li>';
+        i++;
+      }
+      h+=(ord?'<ol>':'<ul>')+items+(ord?'</ol>':'</ul>'); continue;
+    }
+    if(!l.trim()){ flushP(); i++; continue; }
+    buf.push(l.trim()); i++;
+  }
+  flushP();
+  return h||'<div class="empty">这个文件是空的</div>';
 }
 
 /* ============ 到点通知（页面开着时；手机靠 iPhone 提醒事项） ============ */
