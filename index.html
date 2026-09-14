@@ -454,6 +454,14 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
 </nav>
 <div id="toast"></div>
 
+<div id="qpick"><div class="box">
+  <h5 id="qpt"></h5><div class="sub">移到哪个象限</div>
+  <div class="opts">
+    <button data-q="1">重要 · 紧急</button><button data-q="2">重要 · 不紧急</button>
+    <button data-q="3">不重要 · 紧急</button><button data-q="4">不重要 · 不紧急</button>
+  </div>
+  <button class="cancel">取消</button>
+</div></div>
 <script>
 /* ================= 星空 ================= */
 (function(){
@@ -1185,13 +1193,5 @@ if(sessionStorage.getItem('justImported')){
 } else if(!LS.t) setTimeout(()=>toast('先到「设置」填 Token'),700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
-<div id="qpick"><div class="box">
-  <h5 id="qpt"></h5><div class="sub">移到哪个象限</div>
-  <div class="opts">
-    <button data-q="1">重要 · 紧急</button><button data-q="2">重要 · 不紧急</button>
-    <button data-q="3">不重要 · 紧急</button><button data-q="4">不重要 · 不紧急</button>
-  </div>
-  <button class="cancel">取消</button>
-</div></div>
 </body>
 </html>
