@@ -159,6 +159,32 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .hit .m .g{color:var(--gold)}
 .hit mark{background:rgba(214,176,114,.28);color:#f3e2c4;border-radius:3px;padding:0 2px}
 
+/* 归档 */
+#p-arc.show{display:flex}
+.acats{display:flex;gap:7px;padding:2px 0 12px;flex-wrap:wrap}
+.acat{font-size:12.5px;color:var(--dim);border:1px solid var(--line);border-radius:16px;
+  padding:6px 13px;white-space:nowrap;letter-spacing:.04em}
+.acat.on{color:var(--star);border-color:rgba(168,203,232,.45);background:rgba(168,203,232,.1)}
+.acat .n{opacity:.5;margin-left:5px;font-size:10.5px}
+.alist{overflow-y:auto;flex:1;padding-bottom:20px}
+.agrp{margin-bottom:18px}
+.agrp h5{margin:0 0 9px;font-size:10.5px;color:#5a6a80;font-weight:400;letter-spacing:.18em;
+  display:flex;align-items:center;gap:8px}
+.agrp h5::after{content:"";flex:1;height:1px;background:var(--line)}
+.aitem{padding:9px 0 9px 14px;border-left:1px solid var(--line);margin-bottom:7px;position:relative}
+.aitem::before{content:"";position:absolute;left:-2.5px;top:16px;width:5px;height:5px;
+  border-radius:50%;background:var(--star);opacity:.6}
+.aitem.done{opacity:.42}
+.aitem.done::before{background:var(--ok)}
+.aitem.done .at{text-decoration:line-through}
+.aitem.imp::before{background:var(--gold);box-shadow:0 0 7px var(--gold)}
+.aitem .at{font-size:14px;color:#cfd9e8;line-height:1.5;overflow-wrap:anywhere}
+.aitem .ap{font-size:11.5px;color:#5f6e84;margin-top:3px;line-height:1.5}
+.aitem .ad{font-size:10px;color:#4d5b72;letter-spacing:.06em;margin-top:3px}
+@media(min-width:720px){ #p-arc .alist{columns:2;column-gap:30px}
+  #p-arc .agrp{break-inside:avoid} #p-arc .acats{max-width:640px} }
+@media(min-width:1300px){ #p-arc .alist{columns:3} }
+
 /* 设置 */
 label{display:block;font-size:12px;color:var(--dim);margin:18px 0 7px;letter-spacing:.1em}
 input.f{width:100%;background:var(--veil);border:1px solid var(--line);border-radius:12px;
@@ -290,6 +316,11 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
     </div>
   </section>
 
+  <section class="page" id="p-arc">
+    <div class="acats" id="acats"></div>
+    <div class="alist" id="alist"></div>
+  </section>
+
   <section class="page" id="p-sea">
     <div class="sbox"><input id="q" placeholder="搜任何说过的话" autocomplete="off"></div>
     <div class="chips" id="chips"></div>
@@ -319,6 +350,7 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
 <nav>
   <button class="on" data-p="cap"><span class="i">✦</span>记录</button>
   <button data-p="cal"><span class="i">◈</span>日历</button>
+  <button data-p="arc"><span class="i">▤</span>归档</button>
   <button data-p="sea"><span class="i">⌕</span>搜索</button>
   <button data-p="set"><span class="i">◌</span>设置</button>
 </nav>
@@ -550,6 +582,41 @@ function drawMatrix(){
 $('#prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);drawCal();};
 $('#next').onclick=()=>{cur.setMonth(cur.getMonth()+1);drawCal();};
 
+/* ================= 归档 ================= */
+let vault={items:[]}, acat='';
+const CATORDER=['待办','想法','情绪','点子','清单','问题','人','备忘'];
+async function loadVault(){
+  try{ if(!LS.t) throw 0;
+    vault=JSON.parse(unb64((await gh('contents/vault.json')).content));
+    localStorage.setItem('vault',JSON.stringify(vault));
+  }catch(e){ try{vault=JSON.parse(localStorage.getItem('vault')||'{"items":[]}');}catch(_){} }
+  drawArc();
+}
+function drawArc(){
+  const all=vault.items||[];
+  const counts={};
+  all.forEach(i=>counts[i.cat]=(counts[i.cat]||0)+1);
+  const cats=CATORDER.filter(c=>counts[c]);
+  if(!acat || !counts[acat]) acat=cats[0]||'';
+  $('#acats').innerHTML=cats.map(c=>
+    `<span class="acat${c===acat?' on':''}" data-c="${c}">${c}<span class="n">${counts[c]}</span></span>`).join('');
+  $('#acats').querySelectorAll('.acat').forEach(e=>e.onclick=()=>{acat=e.dataset.c;drawArc();});
+  if(!cats.length){
+    $('#alist').innerHTML=`<div class="empty">还没有归档内容<br><br>记一条，我整理完就会出现在这里</div>`;
+    return;
+  }
+  const list=all.filter(i=>i.cat===acat);
+  const grps=[...new Set(list.map(i=>i.grp))];
+  $('#alist').innerHTML=grps.map(g=>{
+    const rows=list.filter(i=>i.grp===g);
+    return `<div class="agrp"><h5>${esc(g)}</h5>${rows.map(i=>{
+      const cls=(i.done?' done':'')+(i.imp?' imp':'');
+      return `<div class="aitem${cls}"><div class="at">${esc(i.t)}</div>${
+        i.p?`<div class="ap">${esc(i.p)}</div>`:''}${
+        i.d?`<div class="ad">${i.d}</div>`:''}</div>`;}).join('')}</div>`;
+  }).join('');
+}
+
 /* ============ 到点通知（页面开着时；手机靠 iPhone 提醒事项） ============ */
 function notified(){try{return JSON.parse(localStorage.getItem('notified')||'[]')}catch(e){return[]}}
 function markNotified(id){const a=notified();a.push(id);
@@ -651,10 +718,11 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));
   b.classList.add('on'); $('#p-'+b.dataset.p).classList.add('show');
   if(b.dataset.p==='cal'){ loadPlan(); loadOpen(); }
+  if(b.dataset.p==='arc') loadVault();
   if(b.dataset.p==='sea'){ loadIndex(); $('#q').focus(); }
 });
 
-render(); flush(); loadPlan(); loadOpen().then(checkDue); loadIndex();
+render(); flush(); loadPlan(); loadOpen().then(checkDue); loadVault(); loadIndex();
 if(sessionStorage.getItem('justImported')){
   sessionStorage.removeItem('justImported');
   setTimeout(()=>toast('已连上，开始说话吧'),500);
