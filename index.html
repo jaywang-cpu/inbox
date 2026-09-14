@@ -298,7 +298,11 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
 
   <section class="page" id="p-set">
     <label>GITHUB TOKEN</label>
-    <input class="f" id="tok" type="password" placeholder="github_pat_..." autocomplete="off">
+    <div style="display:flex;gap:8px">
+      <input class="f" id="tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1">
+      <button id="paste" style="background:var(--veil);border:1px solid var(--line);
+        padding:13px 16px;white-space:nowrap;font-size:14px;color:var(--star)">粘贴</button>
+    </div>
     <label>数据仓库</label>
     <input class="f" id="repo" placeholder="jaywang-cpu/jay-inbox">
     <button id="save">保 存 并 连 接</button>
@@ -615,6 +619,17 @@ $('#save').onclick=async()=>{
   LS.t=$('#tok').value.trim(); LS.r=$('#repo').value.trim()||'jaywang-cpu/jay-inbox';
   try{ await gh(''); toast('连接成功'); flush(); loadPlan(); loadIndex(); }
   catch(e){ toast('连接失败 '+String(e.message).slice(0,32)); }
+};
+
+$('#paste').onclick=async()=>{
+  try{
+    const t=(await navigator.clipboard.readText()).trim();
+    if(!t) return toast('剪贴板是空的');
+    $('#tok').value=t;
+    LS.t=t; LS.r=$('#repo').value.trim()||'jaywang-cpu/jay-inbox';
+    try{ await gh(''); toast('连上了'); flush(); loadPlan(); loadOpen(); loadIndex(); }
+    catch(e){ toast('粘上了但连不上 '+String(e.message).slice(0,26)); }
+  }catch(e){ toast('读不到剪贴板，手动长按粘贴'); $('#tok').focus(); }
 };
 
 $('#notif').onclick=async()=>{
