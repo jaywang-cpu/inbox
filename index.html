@@ -61,7 +61,11 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
   animation:breathe 1.5s ease-in-out infinite}
 #mic.off{opacity:.32}
 @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(196,107,125,.4)}50%{box-shadow:0 0 0 11px rgba(196,107,125,0)}}
-.tagbar{display:flex;gap:8px;margin-bottom:2px}
+.tagbar{display:flex;gap:8px;margin-bottom:2px;align-items:center;flex-wrap:wrap}
+#sortnow2{margin-left:auto;background:var(--veil);border:1px solid var(--line);border-radius:20px;
+  padding:6px 14px;font-size:11.5px;color:var(--star);letter-spacing:.1em;white-space:nowrap}
+#sortnow2:active{opacity:.6}
+#sortnow2.busy{color:var(--gold);border-color:rgba(214,176,114,.45)}
 .tag{background:var(--veil);border:1px solid var(--line);border-radius:20px;
   padding:6px 15px;font-size:13px;color:var(--dim);letter-spacing:.06em}
 .tag.on{background:rgba(214,176,114,.18);border-color:rgba(214,176,114,.5);color:var(--gold)}
@@ -352,6 +356,7 @@ nav button.on .i{text-shadow:0 0 13px rgba(168,203,232,.75)}
         <span class="tag" data-tag="待办">待办</span>
         <span class="tag" data-tag="想法">想法</span>
         <span class="tag" data-tag="情绪">情绪</span>
+        <button id="sortnow2">立 即 整 理</button>
       </div>
     </div>
     <div class="row"><button id="mic" title="语音">◉</button><button id="send">收 进 星 槽</button></div>
@@ -847,8 +852,7 @@ function mdBody(src){
 }
 
 /* ============ 立即整理 ============ */
-$('#sortnow').onclick=async()=>{
-  const b=$('#sortnow');
+async function doSort(b){
   if(b.classList.contains('busy')) return;
   if(!LS.t) return toast('先到设置连上');
   b.classList.add('busy'); b.textContent='已 排 队';
@@ -865,7 +869,9 @@ $('#sortnow').onclick=async()=>{
     toast('通知失败：'+String(e.message).slice(0,26));
     b.classList.remove('busy'); b.textContent='立 即 整 理';
   }
-};
+}
+$('#sortnow').onclick=()=>doSort($('#sortnow'));
+$('#sortnow2').onclick=()=>doSort($('#sortnow2'));
 
 /* ============ 标记完成 ============ */
 let doneQueue=null;
