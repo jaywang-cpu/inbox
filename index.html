@@ -699,10 +699,17 @@ async function loadOpen(){
     open_=JSON.parse(unb64((await gh('contents/open.json')).content));
     localStorage.setItem('open',JSON.stringify(open_));
   }catch(e){ try{open_=JSON.parse(localStorage.getItem('open')||'{"items":[]}');}catch(_){} }
+  // 后端已经真处理掉的条目，把本地缓冲记录清掉，免得越积越多
+  try{
+    const live=new Set((open_.items||[]).map(i=>PD.key(i)));
+    const o=PD.all(); let ch=false;
+    for(const k in o) if(!live.has(k)){ delete o[k]; ch=true; }
+    if(ch) PD.save(o);
+  }catch(e){}
   drawMatrix();
 }
 function drawMatrix(){
-  const all=open_.items||[];
+  const all=(open_.items||[]).filter(i=>!PD.has(i));
   $('#mxcount').textContent=all.length?`${all.length} 件没做完`:'';
   $('#mxtime').textContent=open_.updated?open_.updated.slice(5,16).replace('T',' '):'';
   for(const q of [1,2,3,4]){
@@ -923,6 +930,18 @@ $('#sortnow').onclick=()=>doSort($('#sortnow'));
 $('#sortnow2').onclick=()=>doSort($('#sortnow2'));
 
 /* ============ 标记完成 ============ */
+/* 后端重新生成 open.json 要等一会儿，这层缓冲保证你点完立刻消失、不会弹回来 */
+const PD={
+  all(){ try{ return JSON.parse(localStorage.getItem('pendingDone')||'{}'); }catch(e){ return {}; } },
+  save(o){ localStorage.setItem('pendingDone', JSON.stringify(o)); },
+  key(i){ return i.id || ((i.file||'')+'|'+(i.title||'')); },
+  has(i){ const o=this.all(), k=this.key(i);
+    if(!o[k]) return false;
+    if(Date.now()-o[k] > 6*3600e3){ delete o[k]; this.save(o); return false; }
+    return true; },
+  add(k){ const o=this.all(); o[k]=Date.now(); this.save(o); },
+  del(k){ const o=this.all(); delete o[k]; this.save(o); }
+};
 let doneQueue=null;
 async function ghPut(path, obj, msg){
   let sha=null;
@@ -935,15 +954,21 @@ async function markPlanDone(id){
   const t=(plan.tasks||[]).find(x=>x.id===id);
   if(!t) return;
   t.done=!t.done;
+  if(t.done) PD.add(id); else PD.del(id);
   localStorage.setItem('plan',JSON.stringify(plan));
-  drawCal();
+  drawCal(); drawMatrix();
   try{ await ghPut('plan.json', plan, (t.done?'done ':'undone ')+t.title); toast(t.done?'已完成':'已取消'); }
-  catch(e){ toast('没传上去，稍后自动重试'); }
-  await loadOpen();
+  catch(e){
+    t.done=!t.done; if(t.done) PD.add(id); else PD.del(id);
+    localStorage.setItem('plan',JSON.stringify(plan));
+    drawCal(); drawMatrix();
+    toast('没传上去，已还原');
+  }
 }
 
 async function markTodoDone(file, title, el){
-  el.closest('li').classList.add('row-done');
+  const k=file+'|'+title;
+  PD.add(k); drawMatrix();
   try{
     let d={marks:[]};
     try{ d=JSON.parse(unb64((await gh('contents/done.json')).content)); }catch(e){}
@@ -951,7 +976,7 @@ async function markTodoDone(file, title, el){
     d.marks.push({file, title, at:new Date().toISOString()});
     await ghPut('done.json', d, 'done '+title);
     toast('已完成');
-  }catch(e){ toast('没传上去，稍后再试'); el.closest('li').classList.remove('row-done'); }
+  }catch(e){ PD.del(k); drawMatrix(); toast('没传上去，已还原'); }
 }
 
 /* ============ 四象限：拖动 / 点选 换象限 ============ */
