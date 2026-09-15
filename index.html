@@ -188,6 +188,8 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 #qpick .cancel{margin-top:11px;width:100%;background:transparent;color:var(--dim);
   border-color:transparent;padding:10px}
 .qd li .d,.qd li .due,.qd li .od{font-size:10.5px;letter-spacing:.04em;white-space:nowrap}
+.qd li .lk.off{opacity:.22;filter:grayscale(1)}
+.qd li .lk.on{opacity:1;filter:none;text-shadow:0 0 7px rgba(214,176,114,.65)}
 .qd li .lk{display:inline-block;margin-left:5px;font-size:10px;opacity:.75;
   padding:0 3px;border-radius:4px;background:rgba(168,203,232,.14);cursor:pointer}
 .qd li .lk:active{transform:scale(.88)}
@@ -716,7 +718,9 @@ function drawMatrix(){
             else if(L!=null&&L<=7) t=`<span class="${due?'due':'d'}">${due?'还剩':'还有'}${L}天${i.time?' '+i.time:''}</span>`;
             else if(i.date) t=`<span class="d">${due?'截止 ':''}${i.date.slice(5)}</span>`;
             const badge=(i.src==='日历')?'':`<span class="s">${i.src}</span>`;
-            const lk=i.lock?`<span class="lk" title="已锁住象限，点一下解锁">🔒</span>`:'';
+            const lk=i.lock
+              ? `<span class="lk on" title="已锁住，点一下解锁">🔒</span>`
+              : `<span class="lk off" title="点一下锁在这个象限">🔓</span>`;
             return `<li data-oid="${esc(i.id||'')}" data-src="${esc(i.src)}" data-file="${
               esc(i.file||'')}" data-title="${esc(i.title)}" data-lock="${i.lock?1:''}"><span class="ck">✓</span><div class="tx">${
               esc(i.title)} ${t}${badge}${lk}</div></li>`;}).join('')}</ul>`
@@ -1088,7 +1092,15 @@ function bindDrag(){
     li.addEventListener('click',e=>{
       if(e.target.closest('.ck')) return;
       if(justDragged||dragging) return;
-      if(e.target.closest('.lk')){ e.stopPropagation(); unlockItem(li); return; }
+      if(e.target.closest('.lk')){
+        e.stopPropagation();
+        if(li.dataset.lock) unlockItem(li);
+        else{
+          const q=+(li.closest('.qd').id.slice(1));
+          moveToQ(li.dataset.oid, li.dataset.src, li.dataset.file, li.dataset.title, q, true);
+        }
+        return;
+      }
       openPick(li);
     });
   });
