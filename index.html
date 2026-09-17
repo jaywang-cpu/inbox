@@ -128,6 +128,32 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .qd li .tx{flex:1;min-width:0}
 .qd li.row-done .tx{opacity:.4;text-decoration:line-through}
 .qd li::before{display:none}
+/* 今天该做 */
+.usec{margin-top:18px}
+.usec h4{margin:0 0 10px;font-size:11px;color:var(--ember);font-weight:400;letter-spacing:.14em;
+  display:flex;align-items:center;gap:8px}
+.usec h4::after{content:"";flex:1;height:1px;background:rgba(196,107,125,.25)}
+.usec .task{border-left:1px solid rgba(196,107,125,.3);padding-left:14px}
+.usec .task.imp{border-left-color:var(--ember)}
+.usec .task:not(.imp){opacity:.72}
+
+/* 已完成板块 */
+.dsec{margin-top:18px;padding-top:2px}
+.dsec h4{margin:0 0 10px;font-size:11px;color:var(--ok);font-weight:400;letter-spacing:.14em;
+  display:flex;align-items:center;gap:8px;opacity:.75}
+.dsec h4::after{content:"";flex:1;height:1px;background:rgba(121,196,154,.22)}
+/* 移除按钮 */
+.task{position:relative}
+.task .rm{flex:0 0 auto;margin-left:6px;font-size:13px;color:#3f4c60;padding:2px 5px;
+  border-radius:7px;opacity:0;transition:opacity .15s;align-self:flex-start;cursor:pointer}
+.task:hover .rm{opacity:.75}
+.task .rm:active{color:var(--ember);opacity:1}
+@media(hover:none){.task .rm{opacity:.4}}
+/* 日历格子作为拖放目标 */
+.day.daydrop{border-color:var(--gold)!important;background:rgba(214,176,114,.16);
+  box-shadow:0 0 0 1px rgba(214,176,114,.45),0 0 18px rgba(214,176,114,.25)}
+.task.lifted{opacity:.4}
+
 /* 那天记了什么 */
 .cap{margin-top:16px}
 .cap h4{margin:0 0 9px;font-size:11px;color:var(--dim);font-weight:400;letter-spacing:.14em;
@@ -585,11 +611,22 @@ document.querySelectorAll('.tag').forEach(el=>el.onclick=()=>{
 });
 
 function render(){
+  // 已经归纳好的就从记录流里清掉：留着只会让人以为还没处理
+  try{
+    const done=new Set((idx.items||[])
+      .filter(i=>!(i.state||'').startsWith('未整理'))
+      .map(i=>(i.text||'').trim()));
+    if(done.size){
+      const before=LS.q;
+      const after=before.filter(e=>!(e.sent && done.has((e.text||'').trim())));
+      if(after.length!==before.length) LS.q=after;
+    }
+  }catch(e){}
   const q=LS.q;
   $('#stream').innerHTML=q.slice(-15).reverse().map(e=>
     `<div class="item ${e.sent?'':'pend'}"><div class="m">${e.at}${e.tag?` · ${e.tag}`:''}${
       e.sent?'':' · <span class="p">待发</span>'}</div><div class="b">${esc(e.text)}</div></div>`).join('')
-    || `<div class="empty">还没有记录</div>`;
+    || `<div class="empty">都归好位了<br><br>说点什么，或者写下来</div>`;
   const pend=q.filter(e=>!e.sent).length, s=$('#status');
   if(!navigator.onLine){s.className='s off';s.textContent=pend?`离线 · ${pend} 待发`:'离线';}
   else if(pend){s.className='s off';s.textContent=`${pend} 待发`;}
@@ -697,19 +734,58 @@ function drawCal(){
   drawList();
 }
 function drawList(){
-  const ts=plan.tasks.filter(t=>t.date===picked).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
-  $('#daylist').innerHTML=`<h4>${picked}</h4>`+(ts.length
-    ? ts.map(t=>{const due=t.kind==='due';
-        const lk=t.lock?'<span class="tlk on" title="已锁住，点一下解锁">🔒</span>'
-                       :'<span class="tlk off" title="点一下锁住，不让系统自动改时间">🔓</span>';
-        return `<div class="task${due?' due':''}${t.done?' row-done':''}" data-tid="${esc(t.id||'')}"
-            data-lock="${t.lock?1:''}">
-          <span class="ck">✓</span><div class="tx">${
-          t.time||due?`<div class="d">${due?'截止 ':''}${t.time||'当天'}${t.approx?' · 约':''}${
-            t.rolled_from?' · 昨日顺延':''}</div>`:''}${
-          esc(t.title)}${due?'<span class="k">截止</span>':''}${lk}</div></div>`;}).join('')
-    : `<div class="empty">这天没有计划</div>`) + capturedHTML() + upcomingHTML();
-  bindChecks();
+  const all=plan.tasks.filter(t=>t.date===picked)
+    .sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const todo=all.filter(t=>!t.done), done=all.filter(t=>t.done);
+
+  const row=t=>{
+    const due=t.kind==='due';
+    const lk=t.lock?'<span class="tlk on" title="已锁住，点一下解锁">🔒</span>'
+                   :'<span class="tlk off" title="点一下锁住，不让系统自动改时间">🔓</span>';
+    return `<div class="task${due?' due':''}${t.done?' row-done':''}" data-tid="${esc(t.id||'')}"
+        data-ttitle="${esc(t.title)}" data-imp="${t.imp?1:0}" data-lock="${t.lock?1:''}">
+      <span class="ck">✓</span><div class="tx">${
+      t.time||due?`<div class="d">${due?'截止 ':''}${t.time||'当天'}${t.approx?' · 约':''}${
+        t.rolled_from?' · 昨日顺延':''}</div>`:''}${
+      esc(t.title)}${due?'<span class="k">截止</span>':''}${lk}</div>
+      <span class="rm" title="从日程移除">✕</span></div>`;
+  };
+
+  let h=`<h4>${picked}</h4>`;
+  h += todo.length ? todo.map(row).join('') : `<div class="empty">这天没有计划</div>`;
+  h += urgentHTML(todo);
+  if(done.length) h += `<div class="dsec"><h4>已 完 成 · ${done.length}</h4>`+
+                        done.map(row).join('')+`</div>`;
+  $('#daylist').innerHTML = h + capturedHTML() + upcomingHTML();
+  bindChecks(); bindTaskDrag();
+}
+
+/* 今天该做：四象限里所有紧急的（Q1 重要在前，Q3 不重要在后），
+   不在今天日程上的补进来。只显示，不改数据，所以不会重复。 */
+function urgentHTML(todo){
+  if(picked!==stamp(new Date())) return '';
+  const have=new Set(todo.map(t=>t.title));
+  const rows=(open_.items||[])
+    .filter(i=>(i.q===1||i.q===3) && !have.has(i.title) && !PD.has(i))
+    .sort((a,b)=>(a.q-b.q) || ((a.overdue?0:1)-(b.overdue?0:1)) ||
+                 ((a.left==null?99:a.left)-(b.left==null?99:b.left)));
+  if(!rows.length) return '';
+  return `<div class="usec"><h4>今 天 该 做 · ${rows.length}</h4>`+
+    rows.map(i=>{
+      const due=i.kind==='due';
+      let t='';
+      if(i.overdue) t=`<span class="od">逾期${Math.abs(i.left)}天</span>`;
+      else if(i.left===0) t=`<span class="${due?'due':'d'}">今天${i.time?' '+i.time:''}</span>`;
+      else if(i.left!=null&&i.left<=7) t=`<span class="${due?'due':'d'}">${
+        due?'还剩':'还有'}${i.left}天${i.time?' '+i.time:''}</span>`;
+      else if(i.date) t=`<span class="d">${due?'截止 ':''}${i.date.slice(5)}</span>`;
+      return `<div class="task${i.imp?' imp':''}" data-tid="${esc(i.id||'')}"
+          data-oid="${esc(i.id||'')}" data-src="${esc(i.src)}" data-file="${esc(i.file||'')}"
+          data-title="${esc(i.title)}" data-ttitle="${esc(i.title)}" data-imp="${i.imp?1:0}">
+        <span class="ck">✓</span><div class="tx">${esc(i.title)} ${t}${
+          i.src!=='日历'?`<span class="k">${esc(i.src)}</span>`:''}</div>
+        <span class="rm" title="从今天移除">✕</span></div>`;
+    }).join('')+'</div>';
 }
 
 /* 那天你记了什么（原话），未整理的高亮 */
@@ -746,7 +822,8 @@ function upcomingHTML(){
         days===1?'明天':days===2?'后天':days+'天后'}</span></div>`;
     }
     const due=t.kind==='due';
-    h+=`<div class="task${due?' due':''}" data-tid="${esc(t.id||'')}">
+    h+=`<div class="task${due?' due':''}" data-tid="${esc(t.id||'')}"
+      data-ttitle="${esc(t.title)}" data-imp="${t.imp?1:0}">
       <span class="ck">✓</span><div class="tx">${
       t.time?`<div class="d">${due?'截止 ':''}${t.time}</div>`:''}${esc(t.title)}${
       due?'<span class="k">截止</span>':''}</div></div>`;
@@ -980,7 +1057,7 @@ async function doSort(b){
     // 之后每 30 秒刷一次，归好了自动出现
     let n=0;
     const iv=setInterval(async()=>{
-      n++; await loadPlan(); await loadOpen(); await loadVault();
+      n++; await loadPlan(); await loadOpen(); await loadVault(); await loadIndex();
       if(n>=8){ clearInterval(iv); b.classList.remove('busy'); b.textContent='立 即 整 理'; }
     }, 30000);
   }catch(e){
@@ -1148,18 +1225,32 @@ document.querySelectorAll('#qpick .opts button').forEach(b=>{
 
 function pointOver(x,y){
   for(const q of [1,2,3,4]){
-    const r=$('#q'+q).getBoundingClientRect();
+    const e=$('#q'+q); if(!e) continue;
+    const r=e.getBoundingClientRect();
     if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return q;
   }
   return null;
 }
-function clearDrop(){ [1,2,3,4].forEach(q=>$('#q'+q).classList.remove('drop')); }
+/* 落在日历哪一格 */
+function dayOver(x,y){
+  for(const el of document.querySelectorAll('.day[data-d]')){
+    const r=el.getBoundingClientRect();
+    if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return el;
+  }
+  return null;
+}
+function clearDrop(){
+  [1,2,3,4].forEach(q=>{const e=$('#q'+q); if(e) e.classList.remove('drop');});
+  document.querySelectorAll('.day.daydrop').forEach(e=>e.classList.remove('daydrop'));
+}
 
 function startDrag(li,x,y){
-  dragging={li, from:+li.closest('.qd').id.slice(1), over:null};
+  const qd=li.closest('.qd');
+  dragging={li, from:qd?+qd.id.slice(1):null, over:null, overDay:null,
+            kind:qd?'q':'task'};
   li.classList.add('lifted');
   const g=document.createElement('div');
-  g.id='ghost'; g.textContent=li.dataset.title||'';
+  g.id='ghost'; g.textContent=li.dataset.title||li.dataset.ttitle||'';
   g.style.left=x+'px'; g.style.top=y+'px';
   document.body.appendChild(g);
   if(navigator.vibrate) navigator.vibrate(12);
@@ -1168,17 +1259,101 @@ function moveDrag(x,y){
   if(!dragging) return;
   const g=$('#ghost'); if(g){ g.style.left=x+'px'; g.style.top=y+'px'; }
   const q=pointOver(x,y);
-  if(q!==dragging.over){ clearDrop(); if(q&&q!==dragging.from) $('#q'+q).classList.add('drop');
-    dragging.over=q; }
+  const dayEl=q?null:dayOver(x,y);
+  const dayKey=dayEl?dayEl.dataset.d:null;
+  if(q!==dragging.over || dayKey!==dragging.overDay){
+    clearDrop();
+    if(q&&q!==dragging.from){ const e=$('#q'+q); if(e) e.classList.add('drop'); }
+    if(dayEl) dayEl.classList.add('daydrop');
+    dragging.over=q; dragging.overDay=dayKey;
+  }
 }
 function endDrag(){
   if(!dragging) return;
-  const {li,from,over}=dragging;
+  const {li,from,over,overDay,kind}=dragging;
   dragging=null; justDragged=true; setTimeout(()=>justDragged=false,350);
   const g=$('#ghost'); if(g) g.remove();
   clearDrop(); li.classList.remove('lifted');
-  if(over && over!==from)
+  if(overDay){ scheduleOnDay(li, overDay); return; }
+  if(kind==='q' && over && over!==from)
     moveToQ(li.dataset.oid, li.dataset.src, li.dataset.file, li.dataset.title, over);
+}
+
+/* 把一条拖到日历某天：已是日程就改日期，是待办就新建一条日程 */
+async function scheduleOnDay(li, date){
+  const oid   = li.dataset.oid || li.dataset.tid || '';
+  const title = li.dataset.title || li.dataset.ttitle || '';
+  const file  = li.dataset.file || '';
+  const src   = li.dataset.src || '';
+  const imp   = li.dataset.imp!=='0';
+  if(!title) return;
+
+  const existing = (plan.tasks||[]).find(t=>t.id===oid);
+  try{
+    if(existing && !String(oid).startsWith('slot_')){
+      existing.date=date; existing.time=null; delete existing.auto_slot;
+      await ghPatch('plan.json', p=>{
+        const x=(p.tasks||[]).find(y=>y.id===oid); if(!x) return null;
+        x.date=date; x.time=null; delete x.auto_slot; return p;
+      }, 'reschedule '+title, plan);
+    }else{
+      const nid='man_'+Date.now().toString(36);
+      const t={id:nid,date,time:null,title,imp,kind:'event',approx:false,
+               repeat:null,done:false,from:file||src};
+      plan.tasks=plan.tasks||[]; plan.tasks.push(t);
+      await ghPatch('plan.json', p=>{
+        p.tasks=p.tasks||[];
+        if(p.tasks.some(y=>y.id===nid)) return null;
+        p.tasks.push(t); return p;
+      }, 'schedule '+title, plan);
+      if(file){                      // 待办那行标记已排，象限里不再重复
+        await ghPatch('move.json', d=>{
+          if(!d||!Array.isArray(d.moves)) d={moves:[]};
+          d.moves.push({file,title,scheduled:date,at:new Date().toISOString()});
+          return d;
+        }, 'scheduled '+title, {moves:[]});
+      }
+      if(String(oid).startsWith('slot_')){
+        plan.tasks=plan.tasks.filter(x=>x.id!==oid);
+        await ghPatch('plan.json', p=>{
+          const before=(p.tasks||[]).length;
+          p.tasks=(p.tasks||[]).filter(x=>x.id!==oid);
+          return p.tasks.length===before?null:p;
+        }, 'drop slot', plan);
+      }
+      open_.items=(open_.items||[]).filter(i=>
+        !((i.file===file&&i.title===title)||(oid&&i.id===oid)));
+    }
+    localStorage.setItem('plan',JSON.stringify(plan));
+    drawCal(); drawMatrix();
+    toast('已排到 '+date.slice(5));
+  }catch(e){ toast('没排上：'+String(e.message).slice(0,24)); loadPlan(); }
+}
+
+/* 从日程上消除 */
+async function removeTask(id, title){
+  try{
+    if(String(id).startsWith('slot_')){
+      const t=(plan.tasks||[]).find(x=>x.id===id);
+      const file=(t&&t.from)||'';
+      if(file){
+        await ghPatch('move.json', d=>{
+          if(!d||!Array.isArray(d.moves)) d={moves:[]};
+          d.moves.push({file,title,unurgent:true,at:new Date().toISOString()});
+          return d;
+        }, 'unurgent '+title, {moves:[]});
+      }
+    }
+    plan.tasks=(plan.tasks||[]).filter(x=>x.id!==id);
+    await ghPatch('plan.json', p=>{
+      const before=(p.tasks||[]).length;
+      p.tasks=(p.tasks||[]).filter(x=>x.id!==id);
+      return p.tasks.length===before?null:p;
+    }, 'remove '+title, plan);
+    localStorage.setItem('plan',JSON.stringify(plan));
+    drawCal(); loadOpen();
+    toast('已从日程移除');
+  }catch(e){ toast('移除失败'); loadPlan(); }
 }
 
 function bindDrag(){
@@ -1265,7 +1440,11 @@ function bindChecks(){
   document.querySelectorAll('.task .ck').forEach(e=>{
     if(e._b) return; e._b=1;
     e.onclick=ev=>{ ev.stopPropagation();
-      const id=e.closest('.task').dataset.tid; if(id) markPlanDone(id); };
+      const el=e.closest('.task'), id=el.dataset.tid;
+      if(el.closest('.usec') && el.dataset.file && el.dataset.src!=='日历'){
+        markTodoDone(el.dataset.file, el.dataset.title, e); drawList(); return;
+      }
+      if(id) markPlanDone(id); };
   });
   document.querySelectorAll('.qd li .ck').forEach(e=>{
     if(e._b) return; e._b=1;
@@ -1274,6 +1453,59 @@ function bindChecks(){
       if(li.dataset.src==='日历'){ if(li.dataset.oid) markPlanDone(li.dataset.oid); }
       else if(li.dataset.file){ markTodoDone(li.dataset.file, li.dataset.title, e); }
     };
+  });
+}
+
+/* 日程条目也能拖：拖到日历某天改期，拖到象限改优先级 */
+function bindTaskDrag(){
+  document.querySelectorAll('#daylist .task, .up .task').forEach(el=>{
+    if(el._td) return; el._td=1;
+
+    el.querySelectorAll('.rm').forEach(b=>{
+      b.onclick=ev=>{ ev.stopPropagation();
+        const id=el.dataset.tid, title=el.dataset.ttitle||'';
+        if(el.closest('.usec') && el.dataset.file){
+          // 「今天该做」里的待办项：只去掉 #急，条目本身留在象限里
+          PD.add(el.dataset.file+'|'+title); drawList();
+          ghPatch('move.json', d=>{
+            if(!d||!Array.isArray(d.moves)) d={moves:[]};
+            d.moves.push({file:el.dataset.file,title,unurgent:true,at:new Date().toISOString()});
+            return d;
+          }, 'unurgent '+title, {moves:[]})
+            .then(()=>toast('已从今天移除，回到不紧急'))
+            .catch(()=>{ PD.del(el.dataset.file+'|'+title); drawList(); toast('没传上去'); });
+          return;
+        }
+        if(id) removeTask(id, title); };
+    });
+
+    let timer=null,sx=0,sy=0;
+    const kill=()=>{ if(timer){clearTimeout(timer);timer=null;} };
+    const skip=t=>t.closest('.ck')||t.closest('.tlk')||t.closest('.rm');
+    const down=(x,y)=>{ sx=x;sy=y;kill();
+      timer=setTimeout(()=>{ timer=null; startDrag(el,x,y); },280); };
+
+    el.addEventListener('touchstart',e=>{
+      if(skip(e.target)) return;
+      const t=e.touches[0]; down(t.clientX,t.clientY);
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      const t=e.touches[0];
+      if(timer){ if(Math.abs(t.clientX-sx)>9||Math.abs(t.clientY-sy)>9) kill(); return; }
+      if(dragging){ e.preventDefault(); moveDrag(t.clientX,t.clientY); }
+    },{passive:false});
+    el.addEventListener('touchend',()=>{kill();endDrag();});
+    el.addEventListener('touchcancel',()=>{kill();endDrag();});
+
+    el.addEventListener('mousedown',e=>{
+      if(skip(e.target)) return;
+      down(e.clientX,e.clientY);
+      const mv=ev=>{ if(timer){ if(Math.abs(ev.clientX-sx)>9||Math.abs(ev.clientY-sy)>9) kill(); return; }
+        if(dragging) moveDrag(ev.clientX,ev.clientY); };
+      const mu=()=>{ kill(); endDrag();
+        document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',mu); };
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',mu);
+    });
   });
 }
 
@@ -1312,7 +1544,7 @@ async function loadIndex(){
     idx=JSON.parse(unb64((await gh('contents/index.json')).content));
     localStorage.setItem('idx',JSON.stringify(idx));
   }catch(e){ try{idx=JSON.parse(localStorage.getItem('idx')||'{"items":[]}');}catch(_){} }
-  drawChips(); search();
+  drawChips(); search(); render();
   if($('#p-cal') && $('#p-cal').classList.contains('show')) drawList();
 }
 function drawChips(){
