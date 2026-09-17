@@ -1114,6 +1114,17 @@ async function markPlanDone(id){
   const t=(plan.tasks||[]).find(x=>x.id===id);
   if(!t) return;
   t.done=!t.done;
+  // 自动排上来的槽位只是「待办」的一个视图：勾它就要同时勾掉源待办，
+  // 否则下一轮排程会照原样再排一条出来。
+  if(String(id).startsWith('slot_') && t.from && t.from.endsWith('.md')){
+    const file=t.from, title=t.title, marking=t.done;
+    ghPatch('done.json', d=>{
+      if(!d||!Array.isArray(d.marks)) d={marks:[]};
+      d.marks.push({file, title, undo:!marking, at:new Date().toISOString()});
+      return d;
+    }, (marking?'done ':'undone ')+title, {marks:[]}).catch(()=>{});
+    if(marking) PD.add(file+'|'+title); else PD.del(file+'|'+title);
+  }
   if(t.done) PD.add(id); else PD.del(id);
   localStorage.setItem('plan',JSON.stringify(plan));
   drawCal(); drawMatrix();
