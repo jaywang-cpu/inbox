@@ -152,6 +152,10 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 /* 日历格子作为拖放目标 */
 .day.daydrop{border-color:var(--gold)!important;background:rgba(214,176,114,.16);
   box-shadow:0 0 0 1px rgba(214,176,114,.45),0 0 18px rgba(214,176,114,.25)}
+.day .ev[data-tid]{cursor:grab}
+.day .ev.lifted{opacity:.35}
+#daylist.listdrop{border-radius:12px;outline:1px dashed rgba(214,176,114,.55);
+  outline-offset:6px;background:rgba(214,176,114,.06)}
 .task.lifted{opacity:.4}
 
 /* 那天记了什么 */
@@ -715,7 +719,9 @@ function drawCal(){
     // 计划优先显示；那天只有记录没计划时，显示记录
     const src=ev.length?ev:caps.map(c=>({title:c.text,done:false,_cap:1}));
     const shown=src.slice(0,2).map(t=>
-      `<div class="ev${t.done?' done':''}${t._cap?' cap':''}">${esc(t.title)}</div>`).join('');
+      `<div class="ev${t.done?' done':''}${t._cap?' cap':''}"${
+        t._cap?'':` data-tid="${esc(t.id||'')}" data-ttitle="${esc(t.title)}" data-imp="${
+        t.imp?1:0}" data-evday="${key}"`}>${esc(t.title)}</div>`).join('');
     const extra=src.length-2;
     const rest=extra>0?`<div class="more">+${extra}</div>`:'';
     // 右上角小标：计划数 / 记录数
@@ -730,7 +736,9 @@ function drawCal(){
   }
   $('#days').innerHTML=h;
   $('#days').querySelectorAll('.day[data-d]').forEach(el=>
-    el.onclick=()=>{picked=el.dataset.d;drawCal();});
+    el.onclick=e=>{ if(justDragged||dragging) return;
+      picked=el.dataset.d; drawCal(); });
+  bindChipDrag();
   drawList();
 }
 function drawList(){
@@ -1253,6 +1261,13 @@ function dayOver(x,y){
 function clearDrop(){
   [1,2,3,4].forEach(q=>{const e=$('#q'+q); if(e) e.classList.remove('drop');});
   document.querySelectorAll('.day.daydrop').forEach(e=>e.classList.remove('daydrop'));
+  const dl=$('#daylist'); if(dl) dl.classList.remove('listdrop');
+}
+/* 落在「今日计划栏」上 */
+function listOver(x,y){
+  const dl=$('#daylist'); if(!dl) return false;
+  const r=dl.getBoundingClientRect();
+  return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
 }
 
 function startDrag(li,x,y){
@@ -1272,20 +1287,23 @@ function moveDrag(x,y){
   const q=pointOver(x,y);
   const dayEl=q?null:dayOver(x,y);
   const dayKey=dayEl?dayEl.dataset.d:null;
-  if(q!==dragging.over || dayKey!==dragging.overDay){
+  const onList=(!q&&!dayEl)?listOver(x,y):false;
+  if(q!==dragging.over || dayKey!==dragging.overDay || onList!==dragging.overList){
     clearDrop();
     if(q&&q!==dragging.from){ const e=$('#q'+q); if(e) e.classList.add('drop'); }
     if(dayEl) dayEl.classList.add('daydrop');
-    dragging.over=q; dragging.overDay=dayKey;
+    if(onList){ const dl=$('#daylist'); if(dl) dl.classList.add('listdrop'); }
+    dragging.over=q; dragging.overDay=dayKey; dragging.overList=onList;
   }
 }
 function endDrag(){
   if(!dragging) return;
-  const {li,from,over,overDay,kind}=dragging;
+  const {li,from,over,overDay,overList,kind}=dragging;
   dragging=null; justDragged=true; setTimeout(()=>justDragged=false,350);
   const g=$('#ghost'); if(g) g.remove();
   clearDrop(); li.classList.remove('lifted');
   if(overDay){ scheduleOnDay(li, overDay); return; }
+  if(overList){ scheduleOnDay(li, picked); return; }
   if(kind==='q' && over && over!==from)
     moveToQ(li.dataset.oid, li.dataset.src, li.dataset.file, li.dataset.title, over);
 }
@@ -1293,6 +1311,7 @@ function endDrag(){
 /* 把一条拖到日历某天：已是日程就改日期，是待办就新建一条日程 */
 async function scheduleOnDay(li, date){
   const oid   = li.dataset.oid || li.dataset.tid || '';
+  if(li.dataset.evday === date) return;      // 原地没动
   const title = li.dataset.title || li.dataset.ttitle || '';
   const file  = li.dataset.file || '';
   const src   = li.dataset.src || '';
@@ -1510,6 +1529,38 @@ function bindTaskDrag(){
 
     el.addEventListener('mousedown',e=>{
       if(skip(e.target)) return;
+      down(e.clientX,e.clientY);
+      const mv=ev=>{ if(timer){ if(Math.abs(ev.clientX-sx)>9||Math.abs(ev.clientY-sy)>9) kill(); return; }
+        if(dragging) moveDrag(ev.clientX,ev.clientY); };
+      const mu=()=>{ kill(); endDrag();
+        document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',mu); };
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',mu);
+    });
+  });
+}
+
+/* 日历格子里的小条目也能拖：拖到别的天改期，拖到象限改优先级，拖到计划栏排到选中那天 */
+function bindChipDrag(){
+  document.querySelectorAll('.day .ev[data-tid]').forEach(el=>{
+    if(el._cd) return; el._cd=1;
+    let timer=null,sx=0,sy=0;
+    const kill=()=>{ if(timer){clearTimeout(timer);timer=null;} };
+    const down=(x,y)=>{ sx=x;sy=y;kill();
+      timer=setTimeout(()=>{ timer=null; startDrag(el,x,y); },260); };
+
+    el.addEventListener('touchstart',e=>{
+      const t=e.touches[0]; down(t.clientX,t.clientY);
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      const t=e.touches[0];
+      if(timer){ if(Math.abs(t.clientX-sx)>9||Math.abs(t.clientY-sy)>9) kill(); return; }
+      if(dragging){ e.preventDefault(); moveDrag(t.clientX,t.clientY); }
+    },{passive:false});
+    el.addEventListener('touchend',()=>{kill();endDrag();});
+    el.addEventListener('touchcancel',()=>{kill();endDrag();});
+
+    el.addEventListener('mousedown',e=>{
+      e.stopPropagation();
       down(e.clientX,e.clientY);
       const mv=ev=>{ if(timer){ if(Math.abs(ev.clientX-sx)>9||Math.abs(ev.clientY-sy)>9) kill(); return; }
         if(dragging) moveDrag(ev.clientX,ev.clientY); };
