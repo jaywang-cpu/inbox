@@ -85,7 +85,7 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .cal-h button{background:var(--veil);border:1px solid var(--line);padding:7px 15px;font-size:15px;color:var(--star)}
 .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;width:100%}
 .wd{text-align:center;font-size:10px;color:var(--dim);padding:3px 0;letter-spacing:.1em}
-.day{min-height:clamp(62px,12.5vw,104px);min-width:0;background:var(--veil);border:1px solid transparent;
+.day{position:relative;min-height:clamp(62px,12.5vw,104px);min-width:0;background:var(--veil);border:1px solid transparent;
   border-radius:11px;padding:5px 4px 4px;font-size:12px;display:flex;flex-direction:column;
   align-items:stretch;justify-content:flex-start;gap:3px;position:relative;overflow:hidden}
 .ev{font-size:clamp(8.5px,1.9vw,11px);line-height:1.3;background:rgba(214,176,114,.15);
@@ -96,8 +96,17 @@ button{font:inherit;border:none;border-radius:14px;padding:14px;cursor:pointer;c
 .day.pad{background:transparent}
 .day.today{border-color:rgba(168,203,232,.5);box-shadow:0 0 16px rgba(120,165,220,.2)}
 .day.sel{background:rgba(168,203,232,.16)}
-.day .n{color:#9fb0c8;align-self:flex-start;padding-left:2px;font-size:clamp(11px,2.4vw,14px);line-height:1}
+.day .n{color:#9fb0c8;align-self:flex-start;padding-left:2px;font-size:clamp(11px,2.4vw,14px);line-height:1;
+  padding-right:20px}
 .day.today .n{color:var(--star)}
+.day .bdg{position:absolute;top:3px;right:4px;display:flex;gap:3px;align-items:center}
+.day .bdg span{font-size:9px;line-height:1;padding:1.5px 4px;border-radius:7px;letter-spacing:0}
+.day .bdg .bp{background:rgba(214,176,114,.24);color:var(--gold)}
+.day .bdg .bc{background:rgba(168,203,232,.16);color:var(--star)}
+.day .bdg .bc.un{background:rgba(196,107,125,.3);color:#ffd8e0}
+.day .ev.cap{color:#7d8da5;font-style:normal;opacity:.85}
+.day.past{opacity:.62}
+.day.past.sel,.day.today{opacity:1}
 .dots{display:flex;gap:3px;height:5px}
 .dot{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold)}
 .daylist{margin-top:16px;overflow-y:auto;flex:1}
@@ -663,11 +672,24 @@ function drawCal(){
   for(let d=1;d<=len;d++){
     const key=`${y}-${pad(m+1)}-${pad(d)}`;
     const ev=plan.tasks.filter(t=>t.date===key);
-    const shown=ev.slice(0,2).map(t=>
-      `<div class="ev${t.done?' done':''}">${esc(t.title)}</div>`).join('');
-    const rest=ev.length>2?`<div class="more">+${ev.length-2}</div>`:'';
-    h+=`<div class="day${key===today?' today':''}${key===picked?' sel':''}" data-d="${key}">
-        <span class="n">${d}</span>${shown}${rest}</div>`;
+    const caps=(idx.items||[]).filter(i=>i.date===key);          // 那天记了什么
+    const unTri=caps.filter(i=>(i.state||'').startsWith('未整理')).length;
+    const undone=ev.filter(t=>!t.done).length;
+    // 计划优先显示；那天只有记录没计划时，显示记录
+    const src=ev.length?ev:caps.map(c=>({title:c.text,done:false,_cap:1}));
+    const shown=src.slice(0,2).map(t=>
+      `<div class="ev${t.done?' done':''}${t._cap?' cap':''}">${esc(t.title)}</div>`).join('');
+    const extra=src.length-2;
+    const rest=extra>0?`<div class="more">+${extra}</div>`:'';
+    // 右上角小标：计划数 / 记录数
+    let badge='';
+    if(ev.length||caps.length){
+      badge=`<div class="bdg">${undone?`<span class="bp">${undone}</span>`:''}${
+        caps.length?`<span class="bc${unTri?' un':''}">${caps.length}</span>`:''}</div>`;
+    }
+    h+=`<div class="day${key===today?' today':''}${key===picked?' sel':''}${
+        key<today?' past':''}" data-d="${key}">
+        <span class="n">${d}</span>${badge}${shown}${rest}</div>`;
   }
   $('#days').innerHTML=h;
   $('#days').querySelectorAll('.day[data-d]').forEach(el=>
